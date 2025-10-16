@@ -1,0 +1,154 @@
+﻿/* LoginPage.css — refined for no scrollbar + perfect centering */
+
+/* Ensure page never scrolls */
+html, body {
+    overflow: hidden;
+}
+
+/* Page root */
+.login-page {
+    height: 100vh; /* true viewport height */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Section layout */
+.login-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* toward top, not centered vertically */
+    padding-top: 5vh; /* adjust to taste (3–7vh looks good) */
+}
+
+/* Card — larger and visually centered */
+.login-card {
+    background: #0b1020;
+    border: 1px solid #ffffff18;
+    border-radius: 22px;
+    width: min(900px, 94%);
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+/* Card body */
+.login-body {
+    padding: 64px 60px 72px;
+}
+
+/* Typography */
+.login-title {
+    font-size: 2.7rem;
+    margin-bottom: 10px;
+}
+
+.login-subtitle {
+    font-size: 1.15rem;
+    margin-bottom: 34px;
+    color: #cbd5e1;
+}
+
+/* Form */
+.form-group {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+    .form-group label {
+        font-weight: 600;
+        color: #e2e8f0;
+    }
+
+    .form-group input {
+        height: 58px;
+        padding: 0 16px;
+        border-radius: 12px;
+        border: 1px solid #ffffff26;
+        background: #0e1530;
+        color: #fff;
+        font-size: 1.05rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+        .form-group input:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28);
+            outline: none;
+        }
+
+/* Password row */
+.password-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+}
+
+.btn.small {
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+}
+
+/* Checkbox + Forgot password */
+.form-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px 0 24px;
+}
+
+.checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #cbd5e1;
+}
+
+.muted {
+    color: #94a3b8;
+}
+
+/* Error */
+.form-error {
+    background: #431a1a;
+    border: 1px solid #7f1d1d;
+    color: #fecaca;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+
+/* Buttons */
+.form-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn {
+    padding: 0.9rem 1.2rem;
+    border-radius: 12px;
+}
+
+/* Responsiveness for short screens */
+@media (max-height: 760px) {
+    html, body {
+        overflow-y: auto;
+    }
+    /* enable scroll if space is genuinely too small */
+    .login-section {
+        align-items: flex-start;
+        padding-top: 2rem;
+    }
+
+    .login-card {
+        width: min(720px, 95%);
+    }
+
+    .login-body {
+        padding: 40px 28px 48px;
+    }
+
+    .login-title {
+        font-size: 2.3rem;
+    }
+}

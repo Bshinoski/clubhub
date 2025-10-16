@@ -1,110 +1,11 @@
 ﻿import React from "react";
+import { Link } from "react-router-dom";
+import "./LandingPage.css";
 
 const LandingPage: React.FC = () => {
     return (
         <>
-            {/* Local styles just for this page */}
-            <style>{`
-        .wrap {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          background: radial-gradient(1200px 600px at 80% -10%, #646cff33, transparent 60%),
-                      radial-gradient(1000px 500px at -20% 10%, #22d3ee22, transparent 55%),
-                      linear-gradient(180deg, #0f172a, #111827);
-          color: #fff;
-        }
-        .container { width: min(1100px, 92%); margin: 0 auto; }
-
-        /* Header */
-        .header {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 20px 0;
-        }
-        .brand {
-          display: flex; align-items: center; gap: .6rem;
-          font-weight: 800; letter-spacing: .3px; font-size: 1.15rem;
-        }
-        .brand-badge {
-          width: 34px; height: 34px; border-radius: 10px;
-          background: linear-gradient(135deg, #818cf8, #22d3ee);
-          display: grid; place-items: center; font-weight: 900;
-          color: #0b1020;
-        }
-        .nav { display: flex; gap: .75rem; }
-        .btn {
-          border: 1px solid #ffffff2a; background: #ffffff0f;
-          color: #fff; padding: .65rem 1rem; border-radius: 10px;
-          font-weight: 600; letter-spacing: .2px;
-          transition: transform .15s ease, background .2s ease, border-color .2s ease;
-        }
-        .btn:hover { transform: translateY(-1px); border-color: #ffffff55; background:#ffffff1a; }
-        .btn.primary { background: #fff; color: #0b1020; border: none; }
-        .btn.primary:hover { background: #f3f4f6; }
-
-        /* Hero */
-        .hero { padding: 70px 0 30px; text-align: center; }
-        .eyebrow {
-          display:inline-flex; align-items:center; gap:.5rem;
-          border:1px solid #ffffff22; background:#ffffff10; color:#e5e7eb;
-          padding:.35rem .6rem; border-radius:999px; font-size:.85rem;
-        }
-        .title { font-size: clamp(2rem, 4.6vw, 3.5rem); line-height:1.1; margin: 16px auto 10px; font-weight: 900; }
-        .subtitle { color:#cbd5e1; max-width: 720px; margin: 0 auto; font-size: clamp(1rem, 2.4vw, 1.15rem); }
-
-        .cta { margin-top: 26px; display:flex; justify-content:center; gap:.8rem; flex-wrap: wrap; }
-        .ghost { border:1px solid #ffffff30; background: transparent; }
-
-        /* Showcase card */
-        .card-wrap { display:flex; justify-content:center; margin-top:40px; }
-        .card {
-          width: min(900px, 96%);
-          background: #0b1020; border:1px solid #ffffff18; border-radius: 18px;
-          box-shadow: 0 20px 60px rgba(0,0,0,.35);
-          overflow: hidden;
-        }
-        .card-top {
-          display:flex; align-items:center; gap:.35rem; padding:10px 12px;
-          border-bottom:1px solid #ffffff10; background:#0f152c;
-        }
-        .dot { width:10px; height:10px; border-radius:999px; background:#ef4444; }
-        .dot:nth-child(2){ background:#f59e0b;}
-        .dot:nth-child(3){ background:#10b981;}
-
-        .card-body {
-          padding: 26px 24px;
-          display: grid; gap: 16px;
-          grid-template-columns: 1fr;
-        }
-        .fake-col {
-          background: #0e1530; border:1px solid #ffffff10; border-radius: 12px;
-          height: 72px;
-        }
-        .fake-col.tall { height: 160px; }
-
-        /* Features */
-        .features { padding: 64px 0 28px; }
-        .grid {
-          display: grid; gap: 16px;
-          grid-template-columns: repeat(12, 1fr);
-        }
-        .f {
-          grid-column: span 12;
-          background:#0b1020; border:1px solid #ffffff18; border-radius:16px; padding:18px;
-        }
-        .f h3 { margin: 2px 0 6px; font-size: 1.05rem; }
-        .f p { color:#cbd5e1; margin:0; }
-
-        @media (min-width: 720px) {
-          .card-body { grid-template-columns: 1.2fr 1fr; }
-          .f { grid-column: span 4; }
-        }
-
-        /* Footer */
-        .footer { border-top:1px solid #ffffff12; padding: 26px 0; margin-top: 36px; color:#94a3b8; font-size:.95rem; }
-      `}</style>
-
-            <div className="wrap">
+            <div className="wrap landing-page">
                 {/* Header */}
                 <header className="container header" role="banner">
                     <div className="brand">
@@ -112,13 +13,11 @@ const LandingPage: React.FC = () => {
                         ClubConnect
                     </div>
                     <nav className="nav" aria-label="Main">
-                        <button className="btn ghost" onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })}>
-                            Pricing
-                        </button>
+                        <button className="btn" onClick={() => alert("Pricing coming soon")}>Pricing</button>
                         <button className="btn" onClick={() => alert("Docs coming soon")}>Docs</button>
                         <button className="btn" onClick={() => alert("Contact coming soon")}>Contact</button>
-                        <button className="btn" onClick={() => alert("Navigate to Login")}>Log In</button>
-                        <button className="btn primary" onClick={() => alert("Navigate to Sign Up")}>Get Started</button>
+                        <Link className="btn" to="/login">Log In</Link>
+                        <Link className="btn primary" to="/signup">Get Started</Link>
                     </nav>
                 </header>
 

@@ -1,68 +1,155 @@
+/* ===== Global base (shared across all pages) ===== */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    /* Global dark gradient theme */
+    color-scheme: dark;
+    color: #fff;
+    background: radial-gradient(1200px 600px at 80% -10%, #646cff33, transparent 60%), radial-gradient(1000px 500px at -20% 10%, #22d3ee22, transparent 55%), linear-gradient(180deg, #0f172a, #111827);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
+html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Links */
 a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+    font-weight: 500;
+    color: #818cf8;
+    text-decoration: none;
+    transition: color 0.25s;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+    a:hover {
+        color: #a5b4fc;
+    }
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    color: #fff;
+    margin: 0;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
+/* Buttons (shared) */
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+    border-radius: 8px;
+    border: 1px solid #ffffff2a;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    background: #ffffff0f;
+    color: #fff;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s, transform 0.15s ease;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+    button:hover {
+        transform: translateY(-1px);
+        border-color: #ffffff55;
+        background: #ffffff1a;
+    }
+
+    button.primary {
+        background: #fff;
+        color: #0b1020;
+        border: none;
+    }
+
+        button.primary:hover {
+            background: #f3f4f6;
+        }
+
+    button:focus, button:focus-visible {
+        outline: 3px solid #818cf8;
+    }
+
+/* Shared layout primitives */
+.wrap {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    width: min(1100px, 92%);
+    margin: 0 auto;
+}
+
+/* Shared header + nav */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-weight: 800;
+    letter-spacing: .3px;
+    font-size: 1.15rem;
+}
+
+.brand-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #818cf8, #22d3ee);
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    color: #0b1020;
+}
+
+.nav {
+    display: flex;
+    gap: .75rem;
+}
+
+.btn {
+    border: 1px solid #ffffff2a;
+    background: #ffffff0f;
+    color: #fff;
+    padding: .65rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    transition: transform .15s ease, background .2s ease, border-color .2s ease;
+}
+
+    .btn:hover {
+        transform: translateY(-1px);
+        border-color: #ffffff55;
+        background: #ffffff1a;
+    }
+
+    .btn.primary {
+        background: #fff;
+        color: #0b1020;
+        border: none;
+    }
+
+        .btn.primary:hover {
+            background: #f3f4f6;
+        }
+
+/* Shared footer */
+.footer {
+    border-top: 1px solid #ffffff12;
+    padding: 26px 0;
+    margin-top: 36px;
+    color: #94a3b8;
+    font-size: .95rem;
+    text-align: center;
 }
