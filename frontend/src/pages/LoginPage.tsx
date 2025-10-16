@@ -1,7 +1,8 @@
 // src/pages/LoginPage.tsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./LoginPage.css";
+import { useAuth } from "../context/AuthContext";
 
 const LoginPage: React.FC = () => {
     const [showPw, setShowPw] = useState(false);
@@ -9,16 +10,24 @@ const LoginPage: React.FC = () => {
     const [password, setPassword] = useState("");
     const [remember, setRemember] = useState(true);
     const [error, setError] = useState("");
+    const { login } = useAuth();
+    const navigate = useNavigate();
 
-    const handleSubmit = (e: React.FormEvent) => {
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         if (!email || !password) {
             setError("Please enter both email and password.");
             return;
         }
-        // TODO: API login call here
-        alert(`Login attempt with ${email}`);
+        try {
+            await login(email.trim().toLowerCase(), password);
+            // if remember=false you could clear localStorage here; we keep it simple
+            navigate("/"); // or /dashboard
+        } catch (err: any) {
+            setError("Invalid credentials.");
+        }
     };
 
     return (

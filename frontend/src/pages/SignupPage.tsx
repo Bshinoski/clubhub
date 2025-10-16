@@ -1,39 +1,65 @@
+// src/pages/SignupPage.tsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./SignupPage.css";
+import { useAuth } from "../context/AuthContext";
 
 const SignupPage: React.FC = () => {
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [pw, setPw] = useState("");
-    const [pw2, setPw2] = useState("");
-    const [showPw1, setShowPw1] = useState(false);
-    const [showPw2, setShowPw2] = useState(false);
-    const [agree, setAgree] = useState(true);
-    const [error, setError] = useState("");
+    const { signup } = useAuth();
+    const navigate = useNavigate();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // form fields
+    const [email, setEmail] = useState("");
+    const [displayName, setDisplayName] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirm, setConfirm] = useState("");
+
+    // group/create-or-join
+    const [mode, setMode] = useState<"create" | "join">("create");
+    const [groupName, setGroupName] = useState("");
+    const [inviteCode, setInviteCode] = useState("");
+
+    // ui state
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState("");
+    const [info, setInfo] = useState("");
+
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError("");
+        setInfo("");
 
-        if (!fullName.trim() || !email.trim() || !pw || !pw2) {
-            setError("Please fill out all fields.");
-            return;
-        }
-        if (pw !== pw2) {
-            setError("Passwords do not match.");
-            return;
-        }
-        if (!agree) {
-            setError("Please accept the Terms to continue.");
-            return;
-        }
+        const username = email.trim().toLowerCase();
 
-        // TODO: replace with real API call
-        // const res = await fetch("/api/signup", { method:"POST", body: JSON.stringify({ fullName, email, password: pw })});
-        // if (!res.ok) { setError("Sign up failed"); return; }
-        alert(`Sign up (demo): ${fullName} — ${email}`);
-    };
+        // basic validation
+        if (!username || !password) return setError("Email and password are required.");
+        if (password !== confirm) return setError("Passwords do not match.");
+        if (mode === "create" && !groupName.trim()) return setError("Please enter a group name.");
+        if (mode === "join" && !inviteCode.trim()) return setError("Please enter an invite code.");
+
+        try {
+            setSubmitting(true);
+            const res = await signup(
+                username,
+                password,
+                displayName || undefined,
+                mode === "create"
+                    ? { mode, groupName: groupName.trim() }
+                    : { mode, inviteCode: inviteCode.trim() }
+            );
+
+            if (res.groupCode) {
+                setInfo(`Group created! Share this code with teammates: ${res.groupCode}`);
+            }
+
+            // route into the app (adjust to /dashboard if you prefer)
+            navigate("/");
+        } catch (err: any) {
+            setError("Could not create account. Username may already exist or code is invalid.");
+        } finally {
+            setSubmitting(false);
+        }
+    }
 
     return (
         <div className="wrap signup-page">
@@ -49,91 +75,118 @@ const SignupPage: React.FC = () => {
                 </nav>
             </header>
 
-            {/* Content */}
+            {/* Centered Signup Form */}
             <section className="signup-section">
                 <div className="signup-card">
                     <div className="signup-body">
-                        <h1 className="title signup-title">Create your account</h1>
-                        <p className="subtitle signup-subtitle">
-                            Get started in seconds. You can invite teammates later.
-                        </p>
+                        <h1 className="title">Create your account</h1>
+                        <p className="subtitle">Join your team or create a new one.</p>
 
                         <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Full name</label>
-                                <input
-                                    type="text"
-                                    placeholder="First Last"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                />
-                            </div>
-
+                            {/* Email */}
                             <div className="form-group">
                                 <label>Email</label>
                                 <input
                                     type="email"
-                                    placeholder="Email"
+                                    placeholder="you@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
+                                    autoComplete="email"
+                                    required
                                 />
                             </div>
 
+                            {/* Display Name */}
+                            <div className="form-group">
+                                <label>Display Name (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Your name"
+                                    value={displayName}
+                                    onChange={(e) => setDisplayName(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Password + Confirm */}
                             <div className="form-group">
                                 <label>Password</label>
-                                <div className="password-wrap">
-                                    <input
-                                        type={showPw1 ? "text" : "password"}
-                                        placeholder="**********"
-                                        value={pw}
-                                        onChange={(e) => setPw(e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn small ghost"
-                                        onClick={() => setShowPw1((s) => !s)}
-                                    >
-                                        {showPw1 ? "Hide" : "Show"}
-                                    </button>
-                                </div>
+                                <input
+                                    type="password"
+                                    placeholder="********"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    required
+                                />
                             </div>
-
                             <div className="form-group">
-                                <label>Confirm password</label>
-                                <div className="password-wrap">
-                                    <input
-                                        type={showPw2 ? "text" : "password"}
-                                        placeholder="**********"
-                                        value={pw2}
-                                        onChange={(e) => setPw2(e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn small ghost"
-                                        onClick={() => setShowPw2((s) => !s)}
-                                    >
-                                        {showPw2 ? "Hide" : "Show"}
-                                    </button>
+                                <label>Confirm Password</label>
+                                <input
+                                    type="password"
+                                    placeholder="********"
+                                    value={confirm}
+                                    onChange={(e) => setConfirm(e.target.value)}
+                                    autoComplete="new-password"
+                                    required
+                                />
+                            </div>
+
+                            {/* Create or Join toggle */}
+                            <div className="form-group">
+                                <label>Team Option</label>
+                                <div className="row">
+                                    <label className="checkbox">
+                                        <input
+                                            type="radio"
+                                            name="mode"
+                                            checked={mode === "create"}
+                                            onChange={() => setMode("create")}
+                                        />
+                                        Create a new group
+                                    </label>
+                                    <label className="checkbox" style={{ marginLeft: "1rem" }}>
+                                        <input
+                                            type="radio"
+                                            name="mode"
+                                            checked={mode === "join"}
+                                            onChange={() => setMode("join")}
+                                        />
+                                        Join with code
+                                    </label>
                                 </div>
                             </div>
 
-                            <div className="form-row">
-                                <label className="checkbox">
+                            {/* Conditional field */}
+                            {mode === "create" ? (
+                                <div className="form-group">
+                                    <label>Group Name</label>
                                     <input
-                                        type="checkbox"
-                                        checked={agree}
-                                        onChange={(e) => setAgree(e.target.checked)}
+                                        value={groupName}
+                                        onChange={(e) => setGroupName(e.target.value)}
+                                        placeholder="Clemson Club Lacrosse"
                                     />
-                                    I agree to the <a href="#" className="muted">Terms</a> and <a href="#" className="muted">Privacy</a>
-                                </label>
-                                <span className="muted" />
-                            </div>
+                                </div>
+                            ) : (
+                                <div className="form-group">
+                                    <label>Invite Code</label>
+                                    <input
+                                        value={inviteCode}
+                                        onChange={(e) => setInviteCode(e.target.value)}
+                                        placeholder="e.g., abC12_X"
+                                    />
+                                </div>
+                            )}
 
-                            {error && <div className="form-error" role="alert">{error}</div>}
+                            {/* Messages */}
+                            {error && <p className="form-error">{error}</p>}
+                            {info && <p className="form-info">{info}</p>}
 
+                            {/* Actions */}
                             <div className="form-actions">
-                                <button type="submit" className="btn primary">Create Account</button>
-                                <Link to="/login" className="btn ghost">I already have an account</Link>
+                                <button type="submit" className="btn primary" disabled={submitting}>
+                                    {submitting ? "Creating..." : "Create Account"}
+                                </button>
+                                <Link to="/login" className="btn ghost">Already have an account?</Link>
                             </div>
                         </form>
                     </div>
