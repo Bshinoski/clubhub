@@ -14,25 +14,31 @@ def get_conn():
 
 def init_db():
     with get_conn() as c:
-        # users: now includes groupId (one group per user for this MVP)
+        # users now includes role ('admin'|'member')
         c.execute("""
         CREATE TABLE IF NOT EXISTS users (
           username    TEXT PRIMARY KEY,
-          password    TEXT NOT NULL,          -- plaintext (DEV ONLY)
+          password    TEXT NOT NULL,
           displayName TEXT,
-          groupId     INTEGER,                 -- <-- NEW
+          groupId     INTEGER,
+          role        TEXT NOT NULL DEFAULT 'member',  -- NEW
           createdAt   TEXT NOT NULL
         );
         """)
-        # groups: has a human-friendly name and a unique join code
+        # add role if DB already existed without it
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(users);")]
+        if "role" not in cols:
+            c.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'")
+
         c.execute("""
         CREATE TABLE IF NOT EXISTS groups (
           id        INTEGER PRIMARY KEY AUTOINCREMENT,
           name      TEXT NOT NULL,
-          code      TEXT NOT NULL UNIQUE,      -- short invite/join code
+          code      TEXT NOT NULL UNIQUE,
           createdAt TEXT NOT NULL
         );
         """)
+
 
 # ---------- API ----------
 app = FastAPI(title="ClubApp Local Auth (PLAINTEXT DEV)")
@@ -84,9 +90,11 @@ def signup(body: SignupIn):
 
         group_id = None
         created_code = None
+        role = "member"
 
         if creating:
             # create a new group
+            role = "admin"
             created_code = _make_code()
             c.execute(
                 "INSERT INTO groups (name, code, createdAt) VALUES (?, ?, ?)",
@@ -102,12 +110,13 @@ def signup(body: SignupIn):
 
         # create user and attach to groupId
         c.execute(
-            "INSERT INTO users (username, password, displayName, groupId, createdAt) VALUES (?, ?, ?, ?, ?)",
-            (username, body.password, body.displayName or username, group_id, datetime.now(timezone.utc).isoformat()),
+            "INSERT INTO users (username, password, displayName, groupId, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
+            (username, body.password, body.displayName or username, group_id, role,
+             datetime.now(timezone.utc).isoformat()),
         )
 
     # if we created a group, return its join code so the UI can show it
-    return {"ok": True, "userId": username, "groupId": group_id, "groupCode": created_code}
+    return {"ok": True, "userId": username, "groupId": group_id, "role": role, "groupCode": group_code}
 
 @app.post("/login")
 def login(body: LoginIn):
@@ -116,7 +125,7 @@ def login(body: LoginIn):
         raise HTTPException(400, "username and password required")
     with get_conn() as c:
         row = c.execute(
-            "SELECT username, password, displayName, groupId FROM users WHERE username=?",
+            "SELECT username, password, displayName, groupId, role FROM users WHERE username=?",
             (username,)
         ).fetchone()
         if not row or body.password != row["password"]:
@@ -126,4 +135,5 @@ def login(body: LoginIn):
             "userId": row["username"],
             "displayName": row["displayName"],
             "groupId": row["groupId"],
+            "role": row["role"],
         }

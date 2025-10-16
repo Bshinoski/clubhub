@@ -11,7 +11,7 @@ async function j<T>(res: Response): Json<T> {
 
 // Backend expects "username" (you can pass an email string as username)
 export async function apiLogin(username: string, password: string) {
-    return j<{ ok: true; userId: string; displayName?: string; groupId?: number }>(
+    return j<{ ok: true; userId: string; displayName?: string; groupId?: number; role: "admin" | "member"  }>(
         await fetch(`${API}/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -25,7 +25,7 @@ type SignupBody =
     | { username: string; password: string; displayName?: string; inviteCode: string };
 
 export async function apiSignup(body: SignupBody) {
-    return j<{ ok: true; userId: string; groupId: number; groupCode?: string }>(
+    return j<{ ok: true; userId: string; groupId: number; role: "admin" | "member"; groupCode?: string }>(
         await fetch(`${API}/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

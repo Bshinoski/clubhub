@@ -19,6 +19,8 @@ python -m venv .venv
 pip install -r requirements.txt
 uvicorn server:app --reload --port 8000
 
+To Delete a current DB (you need to update): del clubapp_local.db
+
 # Frontend
 cd frontend
 npm install

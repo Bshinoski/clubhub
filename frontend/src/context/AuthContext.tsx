@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiLogin, apiSignup } from "../api/auth";
 
 type User = { userId: string; displayName?: string; groupId?: number };
+type Role = "admin" | "member";
 type CreateOpts = { mode: "create"; groupName: string };
 type JoinOpts = { mode: "join"; inviteCode: string };
 
@@ -35,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const login = async (username: string, password: string) => {
         const res = await apiLogin(username, password);
-        persist({ userId: res.userId, displayName: res.displayName, groupId: res.groupId });
+        persist({ userId: res.userId, displayName: res.displayName, groupId: res.groupId, role: res.role });
     };
 
     const signup = async (
@@ -50,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 : { username, password, displayName, inviteCode: opts.inviteCode };
 
         const res = await apiSignup(body as any);
-        persist({ userId: res.userId, displayName, groupId: res.groupId });
+        persist({ userId: res.userId, displayName, groupId: res.groupId, role: res.role });
         return { groupCode: res.groupCode };
     };
 
