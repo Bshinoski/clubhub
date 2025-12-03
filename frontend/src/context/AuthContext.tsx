@@ -1,67 +1,120 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiLogin, apiSignup } from "../api/auth";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-type User = { userId: string; displayName?: string; groupId?: number };
-type Role = "admin" | "member";
-type CreateOpts = { mode: "create"; groupName: string };
-type JoinOpts = { mode: "join"; inviteCode: string };
+interface User {
+    id: string;
+    email: string;
+    name: string;
+    phone?: string;
+    cognitoId: string;
+    createdAt: string;
+    role?: 'admin' | 'member';
+}
 
-type AuthCtx = {
+interface AuthContextType {
     user: User | null;
-    login: (username: string, password: string) => Promise<void>;
-    signup: (
-        username: string,
-        password: string,
-        displayName: string | undefined,
-        opts: CreateOpts | JoinOpts
-    ) => Promise<{ groupCode?: string }>;
+    token: string | null;
+    loading: boolean;
+    login: (email: string, password: string) => Promise<void>;
+    signup: (email: string, password: string, name: string, phone?: string) => Promise<void>;
     logout: () => void;
-};
+}
 
-const Ctx = createContext<AuthCtx | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const raw = localStorage.getItem("clubapp_auth");
-        if (raw) setUser(JSON.parse(raw));
+        // Check for existing session on mount
+        const storedToken = localStorage.getItem('authToken');
+        const storedUser = localStorage.getItem('user');
+
+        if (storedToken && storedUser) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+        }
+        setLoading(false);
     }, []);
 
-    function persist(u: User | null) {
-        setUser(u);
-        if (u) localStorage.setItem("clubapp_auth", JSON.stringify(u));
-        else localStorage.removeItem("clubapp_auth");
-    }
+    const login = async (email: string, password: string) => {
+        setLoading(true);
+        try {
+            // TODO: Replace with actual API call
+            // const response = await axios.post('/api/auth/login', { email, password });
 
-    const login = async (username: string, password: string) => {
-        const res = await apiLogin(username, password);
-        persist({ userId: res.userId, displayName: res.displayName, groupId: res.groupId, role: res.role });
+            // Mock login - determine role based on email for demo
+            const mockToken = 'mock-jwt-token-' + Date.now();
+            const mockUser: User = {
+                id: '1',
+                email,
+                name: email.split('@')[0],
+                cognitoId: 'mock-cognito-id',
+                createdAt: new Date().toISOString(),
+                role: email.includes('admin') ? 'admin' : 'member',
+            };
+
+            setToken(mockToken);
+            setUser(mockUser);
+            localStorage.setItem('authToken', mockToken);
+            localStorage.setItem('user', JSON.stringify(mockUser));
+        } catch (error) {
+            console.error('Login failed:', error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const signup = async (
-        username: string,
-        password: string,
-        displayName: string | undefined,
-        opts: CreateOpts | JoinOpts
-    ) => {
-        const body =
-            opts.mode === "create"
-                ? { username, password, displayName, groupName: opts.groupName }
-                : { username, password, displayName, inviteCode: opts.inviteCode };
+    const signup = async (email: string, password: string, name: string, phone?: string) => {
+        setLoading(true);
+        try {
+            // TODO: Replace with actual API call
+            // const response = await axios.post('/api/auth/signup', { email, password, name, phone });
 
-        const res = await apiSignup(body as any);
-        persist({ userId: res.userId, displayName, groupId: res.groupId, role: res.role });
-        return { groupCode: res.groupCode };
+            // Mock signup
+            const mockToken = 'mock-jwt-token-' + Date.now();
+            const mockUser: User = {
+                id: '1',
+                email,
+                name,
+                phone,
+                cognitoId: 'mock-cognito-id',
+                createdAt: new Date().toISOString(),
+                role: 'member', // Default to member
+            };
+
+            setToken(mockToken);
+            setUser(mockUser);
+            localStorage.setItem('authToken', mockToken);
+            localStorage.setItem('user', JSON.stringify(mockUser));
+        } catch (error) {
+            console.error('Signup failed:', error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const logout = () => persist(null);
+    const logout = () => {
+        setUser(null);
+        setToken(null);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+    };
 
-    return <Ctx.Provider value={{ user, login, signup, logout }}>{children}</Ctx.Provider>;
+    return (
+        <AuthContext.Provider value={{ user, token, loading, login, signup, logout }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
 export const useAuth = () => {
-    const v = useContext(Ctx);
-    if (!v) throw new Error("useAuth must be used inside <AuthProvider>");
-    return v;
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

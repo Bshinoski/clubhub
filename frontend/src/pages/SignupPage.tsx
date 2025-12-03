@@ -1,197 +1,150 @@
-// src/pages/SignupPage.tsx
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "./SignupPage.css";
-import { useAuth } from "../context/AuthContext";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Input } from '../components/common/Input';
+import { Button } from '../components/common/Button';
+import { Users } from 'lucide-react';
 
 const SignupPage: React.FC = () => {
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+    });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
     const { signup } = useAuth();
     const navigate = useNavigate();
 
-    // form fields
-    const [email, setEmail] = useState("");
-    const [displayName, setDisplayName] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirm, setConfirm] = useState("");
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value,
+        });
+    };
 
-    // group/create-or-join
-    const [mode, setMode] = useState<"create" | "join">("create");
-    const [groupName, setGroupName] = useState("");
-    const [inviteCode, setInviteCode] = useState("");
-
-    // ui state
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState("");
-    const [info, setInfo] = useState("");
-
-    async function handleSubmit(e: React.FormEvent) {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
-        setInfo("");
+        setError('');
 
-        const username = email.trim().toLowerCase();
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
 
-        // basic validation
-        if (!username || !password) return setError("Email and password are required.");
-        if (password !== confirm) return setError("Passwords do not match.");
-        if (mode === "create" && !groupName.trim()) return setError("Please enter a group name.");
-        if (mode === "join" && !inviteCode.trim()) return setError("Please enter an invite code.");
+        if (formData.password.length < 8) {
+            setError('Password must be at least 8 characters');
+            return;
+        }
+
+        setLoading(true);
 
         try {
-            setSubmitting(true);
-            const res = await signup(
-                username,
-                password,
-                displayName || undefined,
-                mode === "create"
-                    ? { mode, groupName: groupName.trim() }
-                    : { mode, inviteCode: inviteCode.trim() }
-            );
-
-            if (res.groupCode) {
-                setInfo(`Group created! Share this code with teammates: ${res.groupCode}`);
-            }
-
-            // route into the app (adjust to /dashboard if you prefer)
-            navigate("/");
-        } catch (err: any) {
-            setError("Could not create account. Username may already exist or code is invalid.");
+            await signup(formData.email, formData.password, formData.name, formData.phone);
+            navigate('/');
+        } catch (err) {
+            setError('Signup failed. Please try again.');
         } finally {
-            setSubmitting(false);
+            setLoading(false);
         }
-    }
+    };
 
     return (
-        <div className="wrap signup-page">
-            {/* Header */}
-            <header className="container header" role="banner" style={{ height: "72px" }}>
-                <div className="brand">
-                    <div className="brand-badge">CC</div>
-                    ClubConnect
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center px-4 py-12">
+            <div className="max-w-md w-full">
+                {/* Logo */}
+                <div className="text-center mb-8">
+                    <Link to="/landing" className="inline-flex items-center space-x-2">
+                        <Users className="h-12 w-12 text-primary-600" />
+                        <span className="text-3xl font-bold text-gray-900">ClubApp</span>
+                    </Link>
                 </div>
-                <nav className="nav" aria-label="Main">
-                    <Link className="btn" to="/">Home</Link>
-                    <Link className="btn" to="/login">Log In</Link>
-                </nav>
-            </header>
 
-            {/* Centered Signup Form */}
-            <section className="signup-section">
-                <div className="signup-card">
-                    <div className="signup-body">
-                        <h1 className="title">Create your account</h1>
-                        <p className="subtitle">Join your team or create a new one.</p>
+                {/* Signup Card */}
+                <div className="card">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                        Create Your Account
+                    </h2>
 
-                        <form onSubmit={handleSubmit}>
-                            {/* Email */}
-                            <div className="form-group">
-                                <label>Email</label>
-                                <input
-                                    type="email"
-                                    placeholder="you@example.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    autoComplete="email"
-                                    required
-                                />
-                            </div>
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                            {error}
+                        </div>
+                    )}
 
-                            {/* Display Name */}
-                            <div className="form-group">
-                                <label>Display Name (optional)</label>
-                                <input
-                                    type="text"
-                                    placeholder="Your name"
-                                    value={displayName}
-                                    onChange={(e) => setDisplayName(e.target.value)}
-                                />
-                            </div>
+                    <form onSubmit={handleSubmit}>
+                        <Input
+                            label="Full Name"
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            placeholder="John Doe"
+                            required
+                        />
 
-                            {/* Password + Confirm */}
-                            <div className="form-group">
-                                <label>Password</label>
-                                <input
-                                    type="password"
-                                    placeholder="********"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    autoComplete="new-password"
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Confirm Password</label>
-                                <input
-                                    type="password"
-                                    placeholder="********"
-                                    value={confirm}
-                                    onChange={(e) => setConfirm(e.target.value)}
-                                    autoComplete="new-password"
-                                    required
-                                />
-                            </div>
+                        <Input
+                            label="Email"
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            placeholder="you@example.com"
+                            required
+                        />
 
-                            {/* Create or Join toggle */}
-                            <div className="form-group">
-                                <label>Team Option</label>
-                                <div className="row">
-                                    <label className="checkbox">
-                                        <input
-                                            type="radio"
-                                            name="mode"
-                                            checked={mode === "create"}
-                                            onChange={() => setMode("create")}
-                                        />
-                                        Create a new group
-                                    </label>
-                                    <label className="checkbox" style={{ marginLeft: "1rem" }}>
-                                        <input
-                                            type="radio"
-                                            name="mode"
-                                            checked={mode === "join"}
-                                            onChange={() => setMode("join")}
-                                        />
-                                        Join with code
-                                    </label>
-                                </div>
-                            </div>
+                        <Input
+                            label="Phone Number"
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            placeholder="(555) 123-4567"
+                        />
 
-                            {/* Conditional field */}
-                            {mode === "create" ? (
-                                <div className="form-group">
-                                    <label>Group Name</label>
-                                    <input
-                                        value={groupName}
-                                        onChange={(e) => setGroupName(e.target.value)}
-                                        placeholder="Clemson Club Lacrosse"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="form-group">
-                                    <label>Invite Code</label>
-                                    <input
-                                        value={inviteCode}
-                                        onChange={(e) => setInviteCode(e.target.value)}
-                                        placeholder="e.g., abC12_X"
-                                    />
-                                </div>
-                            )}
+                        <Input
+                            label="Password"
+                            type="password"
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            placeholder="••••••••"
+                            required
+                        />
 
-                            {/* Messages */}
-                            {error && <p className="form-error">{error}</p>}
-                            {info && <p className="form-info">{info}</p>}
+                        <Input
+                            label="Confirm Password"
+                            type="password"
+                            name="confirmPassword"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            placeholder="••••••••"
+                            required
+                        />
 
-                            {/* Actions */}
-                            <div className="form-actions">
-                                <button type="submit" className="btn primary" disabled={submitting}>
-                                    {submitting ? "Creating..." : "Create Account"}
-                                </button>
-                                <Link to="/login" className="btn ghost">Already have an account?</Link>
-                            </div>
-                        </form>
+                        <Button
+                            type="submit"
+                            fullWidth
+                            disabled={loading}
+                            className="mb-4"
+                        >
+                            {loading ? 'Creating account...' : 'Sign Up'}
+                        </Button>
+                    </form>
+
+                    <div className="text-center">
+                        <p className="text-gray-600">
+                            Already have an account?{' '}
+                            <Link to="/login" className="text-primary-600 font-medium hover:text-primary-700">
+                                Login
+                            </Link>
+                        </p>
                     </div>
                 </div>
-            </section>
+            </div>
         </div>
     );
 };

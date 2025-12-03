@@ -1,155 +1,27 @@
-/* ===== Global base (shared across all pages) ===== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
-    /* Global dark gradient theme */
-    color-scheme: dark;
-    color: #fff;
-    background: radial-gradient(1200px 600px at 80% -10%, #646cff33, transparent 60%), radial-gradient(1000px 500px at -20% 10%, #22d3ee22, transparent 55%), linear-gradient(180deg, #0f172a, #111827);
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+@layer base {
+    body {
+        @apply bg-gray-50 text-gray-900;
+    }
 }
 
-html, body, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-}
-
-/* Links */
-a {
-    font-weight: 500;
-    color: #818cf8;
-    text-decoration: none;
-    transition: color 0.25s;
-}
-
-    a:hover {
-        color: #a5b4fc;
+@layer components {
+    .btn-primary {
+        @apply bg-primary-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
     }
 
-/* Headings */
-h1, h2, h3, h4, h5, h6 {
-    color: #fff;
-    margin: 0;
-}
-
-/* Buttons (shared) */
-button {
-    border-radius: 8px;
-    border: 1px solid #ffffff2a;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    font-weight: 500;
-    font-family: inherit;
-    background: #ffffff0f;
-    color: #fff;
-    cursor: pointer;
-    transition: border-color 0.25s, background 0.25s, transform 0.15s ease;
-}
-
-    button:hover {
-        transform: translateY(-1px);
-        border-color: #ffffff55;
-        background: #ffffff1a;
+    .btn-secondary {
+        @apply bg-white text-primary-600 border border-primary-600 px-4 py-2 rounded-lg font-medium hover:bg-primary-50 transition-colors;
     }
 
-    button.primary {
-        background: #fff;
-        color: #0b1020;
-        border: none;
+    .input-field {
+        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all;
     }
 
-        button.primary:hover {
-            background: #f3f4f6;
-        }
-
-    button:focus, button:focus-visible {
-        outline: 3px solid #818cf8;
+    .card {
+        @apply bg-white rounded-xl shadow-md p-6;
     }
-
-/* Shared layout primitives */
-.wrap {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.container {
-    width: min(1100px, 92%);
-    margin: 0 auto;
-}
-
-/* Shared header + nav */
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 0;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    font-weight: 800;
-    letter-spacing: .3px;
-    font-size: 1.15rem;
-}
-
-.brand-badge {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #818cf8, #22d3ee);
-    display: grid;
-    place-items: center;
-    font-weight: 900;
-    color: #0b1020;
-}
-
-.nav {
-    display: flex;
-    gap: .75rem;
-}
-
-.btn {
-    border: 1px solid #ffffff2a;
-    background: #ffffff0f;
-    color: #fff;
-    padding: .65rem 1rem;
-    border-radius: 10px;
-    font-weight: 600;
-    letter-spacing: .2px;
-    transition: transform .15s ease, background .2s ease, border-color .2s ease;
-}
-
-    .btn:hover {
-        transform: translateY(-1px);
-        border-color: #ffffff55;
-        background: #ffffff1a;
-    }
-
-    .btn.primary {
-        background: #fff;
-        color: #0b1020;
-        border: none;
-    }
-
-        .btn.primary:hover {
-            background: #f3f4f6;
-        }
-
-/* Shared footer */
-.footer {
-    border-top: 1px solid #ffffff12;
-    padding: 26px 0;
-    margin-top: 36px;
-    color: #94a3b8;
-    font-size: .95rem;
-    text-align: center;
 }

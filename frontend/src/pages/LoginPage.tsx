@@ -1,110 +1,109 @@
-// src/pages/LoginPage.tsx
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "./LoginPage.css";
-import { useAuth } from "../context/AuthContext";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Input } from '../components/common/Input';
+import { Button } from '../components/common/Button';
+import { Users } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
-    const [showPw, setShowPw] = useState(false);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [remember, setRemember] = useState(true);
-    const [error, setError] = useState("");
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
     const { login } = useAuth();
     const navigate = useNavigate();
 
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
-        if (!email || !password) {
-            setError("Please enter both email and password.");
-            return;
-        }
+        setError('');
+        setLoading(true);
+
         try {
-            await login(email.trim().toLowerCase(), password);
-            // if remember=false you could clear localStorage here; we keep it simple
-            navigate("/"); // or /dashboard
-        } catch (err: any) {
-            setError("Invalid credentials.");
+            await login(email, password);
+            navigate('/');
+        } catch (err) {
+            setError('Invalid email or password. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="wrap login-page">
-            {/* Header */}
-            <header className="container header" role="banner" style={{ height: "72px" }}>
-                <div className="brand">
-                    <div className="brand-badge">CC</div>
-                    ClubConnect
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center px-4">
+            <div className="max-w-md w-full">
+                {/* Logo */}
+                <div className="text-center mb-8">
+                    <Link to="/landing" className="inline-flex items-center space-x-2">
+                        <Users className="h-12 w-12 text-primary-600" />
+                        <span className="text-3xl font-bold text-gray-900">ClubApp</span>
+                    </Link>
                 </div>
-                <nav className="nav" aria-label="Main">
-                    <Link className="btn" to="/">Home</Link>
-                    <Link className="btn" to="/signup">Sign Up</Link>
-                </nav>
-            </header>
 
-            {/* Centered Login Form */}
-            <section className="login-section">
-                <div className="login-card">
-                    <div className="login-body">
-                        <h1 className="title login-title">Log in</h1>
-                        <p className="subtitle login-subtitle">
-                            Welcome back! Enter your credentials to continue.
+                {/* Login Card */}
+                <div className="card">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                        Welcome Back
+                    </h2>
+
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                            {error}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit}>
+                        <Input
+                            label="Email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            required
+                        />
+
+                        <Input
+                            label="Password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                        />
+
+                        <Button
+                            type="submit"
+                            fullWidth
+                            disabled={loading}
+                            className="mb-4"
+                        >
+                            {loading ? 'Logging in...' : 'Login'}
+                        </Button>
+                    </form>
+
+                    <div className="text-center">
+                        <p className="text-gray-600">
+                            Don't have an account?{' '}
+                            <Link to="/signup" className="text-primary-600 font-medium hover:text-primary-700">
+                                Sign up
+                            </Link>
                         </p>
-
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Email</label>
-                                <input
-                                    type="email"
-                                    placeholder="Email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label>Password</label>
-                                <div className="password-wrap">
-                                    <input
-                                        type={showPw ? "text" : "password"}
-                                        placeholder="**********"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn small ghost"
-                                        onClick={() => setShowPw((s) => !s)}
-                                    >
-                                        {showPw ? "Hide" : "Show"}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={remember}
-                                        onChange={(e) => setRemember(e.target.checked)}
-                                    />
-                                    Remember me
-                                </label>
-                                <Link to="#" className="muted">Forgot password?</Link>
-                            </div>
-
-                            {error && <p className="form-error">{error}</p>}
-
-                            <div className="form-actions">
-                                <button type="submit" className="btn primary">Sign In</button>
-                                <Link to="/signup" className="btn ghost">Create Account</Link>
-                            </div>
-                        </form>
                     </div>
                 </div>
-            </section>
+
+                {/* Demo Credentials */}
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800 text-center mb-2">
+                        <strong>Demo Credentials:</strong>
+                    </p>
+                    <p className="text-xs text-blue-700 text-center">
+                        Admin: admin@test.com | Member: member@test.com
+                    </p>
+                    <p className="text-xs text-blue-700 text-center">
+                        Password: any password
+                    </p>
+                </div>
+            </div>
         </div>
     );
 };

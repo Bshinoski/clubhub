@@ -88,35 +88,51 @@ def signup(body: SignupIn):
         if c.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
             raise HTTPException(409, "username already exists")
 
-        group_id = None
-        created_code = None
+        group_id: int
+        group_code: str
         role = "member"
 
         if creating:
             # create a new group
             role = "admin"
-            created_code = _make_code()
+            group_code = _make_code()
             c.execute(
                 "INSERT INTO groups (name, code, createdAt) VALUES (?, ?, ?)",
-                (body.groupName.strip(), created_code, datetime.now(timezone.utc).isoformat()),
+                (body.groupName.strip(), group_code, datetime.now(timezone.utc).isoformat()),
             )
             group_id = c.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
-
-        else:  # joining
-            g = c.execute("SELECT id FROM groups WHERE code = ?", (body.inviteCode.strip(),)).fetchone()
+        else:
+            # join existing group via code
+            code = body.inviteCode.strip()
+            g = c.execute("SELECT id, code FROM groups WHERE code = ?", (code,)).fetchone()
             if not g:
                 raise HTTPException(404, "invalid invite code")
             group_id = g["id"]
+            group_code = g["code"]  # <-- ensure we return a code for join too
 
-        # create user and attach to groupId
+        # create user
         c.execute(
             "INSERT INTO users (username, password, displayName, groupId, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
-            (username, body.password, body.displayName or username, group_id, role,
-             datetime.now(timezone.utc).isoformat()),
+            (
+                username,
+                body.password,  # plaintext for dev only
+                body.displayName or username,
+                group_id,
+                role,
+                datetime.now(timezone.utc).isoformat(),
+            ),
         )
 
-    # if we created a group, return its join code so the UI can show it
-    return {"ok": True, "userId": username, "groupId": group_id, "role": role, "groupCode": group_code}
+    # Return a consistent shape the frontend expects
+    return {
+        "ok": True,
+        "userId": username,
+        "displayName": body.displayName or username,
+        "groupId": group_id,
+        "role": role,
+        "groupCode": group_code,  # always present now
+    }
+
 
 @app.post("/login")
 def login(body: LoginIn):

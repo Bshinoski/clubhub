@@ -1,79 +1,114 @@
-﻿import React from "react";
-import { Link } from "react-router-dom";
-import "./LandingPage.css";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Calendar, MessageCircle, DollarSign, Camera, Users, Shield } from 'lucide-react';
+import { Button } from '../components/common/Button';
 
 const LandingPage: React.FC = () => {
+    const features = [
+        {
+            icon: <Users className="h-6 w-6" />,
+            title: 'Roster Management',
+            description: 'Easily manage players, parents, and coaches all in one place.',
+        },
+        {
+            icon: <Shield className="h-6 w-6" />,
+            title: 'Role-Based Access',
+            description: 'Admin and member roles with appropriate permissions.',
+        },
+        {
+            icon: <Calendar className="h-6 w-6" />,
+            title: 'Schedule Updates',
+            description: 'Keep everyone informed with practice and game schedules.',
+        },
+        {
+            icon: <MessageCircle className="h-6 w-6" />,
+            title: 'Team Chat',
+            description: 'Real-time messaging to keep your team connected.',
+        },
+        {
+            icon: <DollarSign className="h-6 w-6" />,
+            title: 'Payment Processing',
+            description: 'Collect fees, dues, and event charges seamlessly.',
+        },
+        {
+            icon: <Camera className="h-6 w-6" />,
+            title: 'Photo Gallery',
+            description: 'Share and preserve team memories in one place.',
+        },
+    ];
+
     return (
-        <>
-            <div className="wrap landing-page">
-                {/* Header */}
-                <header className="container header" role="banner">
-                    <div className="brand">
-                        <div className="brand-badge">CC</div>
-                        ClubConnect
-                    </div>
-                    <nav className="nav" aria-label="Main">
-                        <button className="btn" onClick={() => alert("Pricing coming soon")}>Pricing</button>
-                        <button className="btn" onClick={() => alert("Docs coming soon")}>Docs</button>
-                        <button className="btn" onClick={() => alert("Contact coming soon")}>Contact</button>
-                        <Link className="btn" to="/login">Log In</Link>
-                        <Link className="btn primary" to="/signup">Get Started</Link>
-                    </nav>
-                </header>
-
-                {/* Hero */}
-                <section className="container hero">
-                    <div className="eyebrow">
-                        <span>🚀 New</span> <span>Simple team ops for clubs</span>
-                    </div>
-                    <h1 className="title">Run your club in one place.</h1>
-                    <p className="subtitle">
-                        Chat with members, publish schedules, and manage rosters — all in a fast, friendly web app.
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-50">
+            {/* Hero Section */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+                <div className="text-center">
+                    <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6">
+                        Manage Your Club Sports Team
+                        <span className="text-primary-600"> Effortlessly</span>
+                    </h1>
+                    <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                        ClubApp is the all-in-one platform for club sports teams. Manage rosters,
+                        communicate with your team, handle payments, and more�all in one place.
                     </p>
-                    <div className="cta">
-                        <button className="btn primary" onClick={() => alert("Sign Up")}>Create a free team</button>
-                        <button className="btn ghost" onClick={() => alert("Watch demo")}>Watch a 60s demo</button>
+                    <div className="flex justify-center space-x-4">
+                        <Link to="/signup">
+                            <Button className="text-lg px-8 py-3">Get Started Free</Button>
+                        </Link>
+                        <Link to="/login">
+                            <Button variant="secondary" className="text-lg px-8 py-3">
+                                Login
+                            </Button>
+                        </Link>
                     </div>
-
-                    {/* Showcase card: tasteful placeholder for “app preview” */}
-                    <div className="card-wrap" aria-hidden="true">
-                        <div className="card">
-                            <div className="card-top">
-                                <div className="dot" /> <div className="dot" /> <div className="dot" />
-                            </div>
-                            <div className="card-body">
-                                <div className="fake-col tall" />
-                                <div className="fake-col" />
-                                <div className="fake-col" />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Features */}
-                <section className="container features">
-                    <div className="grid">
-                        <article className="f">
-                            <h3>💬 Team Chat</h3>
-                            <p>Keep conversations in one place. Channels for teams, DMs for quick coordination.</p>
-                        </article>
-                        <article className="f">
-                            <h3>📅 Schedule</h3>
-                            <p>Create events, share locations, and send reminders so everyone shows up on time.</p>
-                        </article>
-                        <article className="f">
-                            <h3>🧑‍🤝‍🧑 Roster</h3>
-                            <p>See members at a glance and promote admins with one click. Invite links built-in.</p>
-                        </article>
-                    </div>
-                </section>
-
-                {/* Footer */}
-                <footer className="container footer" role="contentinfo">
-                    © {new Date().getFullYear()} ClubConnect — Built for clubs, teams, and communities.
-                </footer>
+                </div>
             </div>
-        </>
+
+            {/* Features Section */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+                <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+                    Everything You Need to Run Your Team
+                </h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {features.map((feature, index) => (
+                        <div key={index} className="card hover:shadow-lg transition-shadow">
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div className="p-3 bg-primary-100 text-primary-600 rounded-lg">
+                                    {feature.icon}
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900">
+                                    {feature.title}
+                                </h3>
+                            </div>
+                            <p className="text-gray-600">{feature.description}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* CTA Section */}
+            <div className="bg-primary-600 py-16">
+                <div className="max-w-4xl mx-auto text-center px-4">
+                    <h2 className="text-3xl font-bold text-white mb-4">
+                        Ready to Transform Your Team Management?
+                    </h2>
+                    <p className="text-primary-100 text-lg mb-8">
+                        Join hundreds of teams already using ClubApp to stay organized and connected.
+                    </p>
+                    <Link to="/signup">
+                        <Button className="bg-white text-primary-600 hover:bg-gray-100 text-lg px-8 py-3">
+                            Start Your Free Trial
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <footer className="bg-gray-900 text-gray-400 py-8">
+                <div className="max-w-7xl mx-auto px-4 text-center">
+                    <p>&copy; 2025 ClubApp. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
     );
 };
 
