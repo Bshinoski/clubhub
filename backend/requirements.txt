@@ -1,3 +1,31 @@
-fastapi
-uvicorn
-pydantic
+# FastAPI and server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# AWS SDK
+boto3==1.29.7
+botocore==1.32.7
+
+# Authentication & Security
+pyjwt[crypto]==2.8.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-decouple==3.8
+
+# CORS
+fastapi-cors==0.0.6
+
+# WebSocket support
+websockets==12.0
+
+# Pydantic for data validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Email
+emails==0.6
+
+# Utilities
+python-dotenv==1.0.0
+shortuuid==1.0.11
