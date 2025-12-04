@@ -48,7 +48,7 @@ const LandingPage: React.FC = () => {
                     </h1>
                     <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
                         ClubApp is the all-in-one platform for club sports teams. Manage rosters,
-                        communicate with your team, handle payments, and more—all in one place.
+                        communicate with your team, handle payments, and more-all in one place.
                     </p>
                     <div className="flex justify-center space-x-4">
                         <Link to="/signup">
