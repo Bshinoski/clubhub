@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Calendar, MessageCircle, DollarSign, Camera, Users as UsersIcon } from 'lucide-react';
 import { Navbar } from '../common/Navbar';
+import { useAuth } from '../../context/AuthContext';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -9,9 +10,12 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const location = useLocation();
+    const { user } = useAuth();
+
+    const dashboardPath = user?.role === 'admin' ? '/dashboard/admin' : '/dashboard/member';
 
     const navItems = [
-        { path: '/dashboard', icon: <Home className="h-5 w-5" />, label: 'Dashboard' },
+        { path: dashboardPath, icon: <Home className="h-5 w-5" />, label: 'Dashboard' },
         { path: '/dashboard/roster', icon: <UsersIcon className="h-5 w-5" />, label: 'Roster' },
         { path: '/dashboard/schedule', icon: <Calendar className="h-5 w-5" />, label: 'Schedule' },
         { path: '/dashboard/chat', icon: <MessageCircle className="h-5 w-5" />, label: 'Chat' },

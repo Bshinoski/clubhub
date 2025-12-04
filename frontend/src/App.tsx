@@ -7,8 +7,12 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import AdminDashboard from './pages/AdminDashboard';
 import MemberDashboard from './pages/MemberDashboard';
+import RosterPage from './pages/RosterPage';
+import SchedulePage from './pages/SchedulePage';
+import ChatPage from './pages/ChatPage';
+import PaymentsPage from './pages/PaymentsPage';
+import GalleryPage from './pages/GalleryPage';
 
-// Redirect component that routes based on role
 function HomeRedirect() {
     const { user } = useAuth();
 
@@ -16,7 +20,6 @@ function HomeRedirect() {
         return <Navigate to="/landing" replace />;
     }
 
-    // Redirect to role-specific dashboard
     const dashboardPath = user.role === 'admin' ? '/dashboard/admin' : '/dashboard/member';
     return <Navigate to={dashboardPath} replace />;
 }
@@ -30,7 +33,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
 
-            {/* Protected Routes - Admin Dashboard */}
+            {/* Protected Routes - Dashboards */}
             <Route
                 path="/dashboard/admin"
                 element={
@@ -39,8 +42,6 @@ function App() {
                     </PrivateRoute>
                 }
             />
-
-            {/* Protected Routes - Member Dashboard */}
             <Route
                 path="/dashboard/member"
                 element={
@@ -50,10 +51,52 @@ function App() {
                 }
             />
 
-            {/* Legacy route redirects */}
+            {/* Protected Routes - Feature Pages */}
+            <Route
+                path="/dashboard/roster"
+                element={
+                    <PrivateRoute>
+                        <RosterPage />
+                    </PrivateRoute>
+                }
+            />
+            <Route
+                path="/dashboard/schedule"
+                element={
+                    <PrivateRoute>
+                        <SchedulePage />
+                    </PrivateRoute>
+                }
+            />
+            <Route
+                path="/dashboard/chat"
+                element={
+                    <PrivateRoute>
+                        <ChatPage />
+                    </PrivateRoute>
+                }
+            />
+            <Route
+                path="/dashboard/payments"
+                element={
+                    <PrivateRoute>
+                        <PaymentsPage />
+                    </PrivateRoute>
+                }
+            />
+            <Route
+                path="/dashboard/gallery"
+                element={
+                    <PrivateRoute>
+                        <GalleryPage />
+                    </PrivateRoute>
+                }
+            />
+
+            {/* Legacy redirects */}
             <Route path="/dashboard" element={<HomeRedirect />} />
 
-            {/* Catch all - redirect to home */}
+            {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
