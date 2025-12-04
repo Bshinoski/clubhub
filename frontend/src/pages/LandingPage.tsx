@@ -95,7 +95,7 @@ const LandingPage: React.FC = () => {
                         Join hundreds of teams already using ClubApp to stay organized and connected.
                     </p>
                     <Link to="/signup">
-                        <Button className="bg-white text-primary-600 hover:bg-gray-100 text-lg px-8 py-3">
+                        <Button className="bg-primary-700 text-white hover:bg-primary-700 text-lg px-8 py-3">
                             Start Your Free Trial
                         </Button>
                     </Link>
