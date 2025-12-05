@@ -55,13 +55,14 @@ class DynamoDBService:
 
     def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user"""
-        user_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        # Use the user_id from user_data if provided, otherwise generate one
+        user_id = user_data.get('user_id', str(uuid.uuid4()))
+        created_at = user_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'user_id': user_id,
             'email': user_data['email'],
-            'display_name': user_data.get('name', ''),
+            'display_name': user_data.get('display_name', ''),
             'phone': user_data.get('phone', ''),
             'password_hash': user_data['password_hash'],
             'created_at': created_at
@@ -297,8 +298,9 @@ class DynamoDBService:
 
     def create_event(self, event_data: Dict[str, Any]) -> None:
         """Create a new event"""
-        event_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        # Use the event_id from event_data if provided, otherwise generate one
+        event_id = event_data.get('event_id', str(uuid.uuid4()))
+        created_at = event_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'event_id': event_id,
@@ -391,8 +393,9 @@ class DynamoDBService:
 
     def create_payment(self, payment_data: dict) -> None:
         """Create a new payment and update member balance"""
-        payment_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        # Use the payment_id from payment_data if provided, otherwise generate one
+        payment_id = payment_data.get('payment_id', str(uuid.uuid4()))
+        created_at = payment_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'payment_id': payment_id,
@@ -536,15 +539,17 @@ class DynamoDBService:
         """Create a new message (supports both dict and individual params)"""
         if isinstance(message_data_or_group_id, dict):
             message_data = message_data_or_group_id
+            # Use the message_id from message_data if provided, otherwise generate one
+            message_id = message_data.get('message_id', str(uuid.uuid4()))
+            created_at = message_data.get('created_at', datetime.utcnow().isoformat())
             group_id = message_data['group_id']
             user_id = message_data['user_id']
             user_name = message_data.get('user_name', '')
             content = message_data['content']
         else:
             group_id = message_data_or_group_id
-
-        message_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+            message_id = str(uuid.uuid4())
+            created_at = datetime.utcnow().isoformat()
 
         item = {
             'message_id': message_id,
@@ -606,8 +611,9 @@ class DynamoDBService:
 
     def create_photo(self, photo_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new photo record"""
-        photo_id = str(uuid.uuid4())
-        uploaded_at = datetime.utcnow().isoformat()
+        # Use the photo_id from photo_data if provided, otherwise generate one
+        photo_id = photo_data.get('photo_id', str(uuid.uuid4()))
+        uploaded_at = photo_data.get('uploaded_at', datetime.utcnow().isoformat())
 
         item = {
             'photo_id': photo_id,
