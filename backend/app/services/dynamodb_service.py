@@ -184,7 +184,7 @@ class DynamoDBService:
 
     def add_group_member(self, member_data: Dict[str, Any]) -> Dict[str, Any]:
         """Add a member to a group"""
-        joined_at = datetime.utcnow().isoformat()
+        joined_at = member_data.get('joined_at', datetime.utcnow().isoformat())
 
         item = {
             'group_id': member_data['group_id'],
