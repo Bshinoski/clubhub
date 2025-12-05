@@ -346,3 +346,12 @@ class DynamoDBService:
         )
         items = response.get("Items", [])
         return list(reversed(items))  # Oldest first
+
+
+_db_service: Optional["DynamoDBService"] = None
+
+def get_db_service() -> "DynamoDBService":
+    global _db_service
+    if _db_service is None:
+        _db_service = DynamoDBService()
+    return _db_service

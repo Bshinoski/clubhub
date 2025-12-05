@@ -196,6 +196,28 @@ async def signup(request: SignupRequest):
         raise HTTPException(status_code=500, detail=f"Signup failed: {str(e)}")
 
 
+# Dependency to get current user from JWT token
+async def get_current_user_id(authorization: str = Depends(lambda: None)):
+    """Extract user_id from JWT token"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        # Remove 'Bearer ' prefix if present
+        token = authorization.replace('Bearer ', '')
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        user_id = payload.get('user_id')
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        return user_id
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
 @router.get("/me")
 async def get_current_user(user_id: str = Depends(get_current_user_id)):
     """
@@ -222,26 +244,3 @@ async def get_current_user(user_id: str = Depends(get_current_user_id)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# Dependency to get current user from JWT token
-async def get_current_user_id(authorization: str = Depends(lambda: None)):
-    """Extract user_id from JWT token"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    try:
-        # Remove 'Bearer ' prefix if present
-        token = authorization.replace('Bearer ', '')
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        user_id = payload.get('user_id')
-        
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        return user_id
-        
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
