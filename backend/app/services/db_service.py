@@ -596,7 +596,11 @@ class LocalDBService:
         created_by = payment_data["created_by"]
         created_at = payment_data["created_at"]
 
-        # INSERT that matches your payments table (11 columns, NO updated_at)
+        # Get user's name for the payment record
+        user = self.get_user_by_id(user_id)
+        user_name = user.get("display_name", user["email"]) if user else "Unknown"
+
+        # INSERT that matches your payments table (includes user_name)
         with self._conn() as conn:
             conn.execute(
                 """
@@ -604,6 +608,7 @@ class LocalDBService:
                     payment_id,
                     group_id,
                     user_id,
+                    user_name,
                     amount,
                     description,
                     payment_type,
@@ -613,12 +618,13 @@ class LocalDBService:
                     created_by,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment_id,
                     group_id,
                     user_id,
+                    user_name,
                     amount,
                     description,
                     payment_type,
@@ -631,12 +637,14 @@ class LocalDBService:
             )
 
         # Adjust member balance based on payment_type
-        # CHARGE  -> member owes more  -> balance goes DOWN (subtract amount)
-        # CREDIT  -> member owes less  -> balance goes UP   (add amount)
+        # Positive balance = member owes money
+        # Negative balance = member has credit
+        # CHARGE  -> member owes more  -> balance goes UP (add amount)
+        # CREDIT  -> member owes less  -> balance goes DOWN (subtract amount)
         if payment_type == "CHARGE":
-            self.update_member_balance(user_id, group_id, -amount)
-        elif payment_type == "CREDIT":
             self.update_member_balance(user_id, group_id, amount)
+        elif payment_type == "CREDIT":
+            self.update_member_balance(user_id, group_id, -amount)
 
     def get_payment(self, payment_id: str) -> Optional[Dict[str, Any]]:
         with self._conn() as conn:
@@ -710,6 +718,36 @@ class LocalDBService:
             )
 
         return self.get_payment(payment_id) or {}
+
+    def delete_payment(self, payment_id: str) -> None:
+        """
+        Delete a payment and reverse its balance adjustment.
+
+        When deleting a payment, we reverse the balance change:
+        - CHARGE payments increased balance, so we decrease it back
+        - CREDIT payments decreased balance, so we increase it back
+        """
+        # First get the payment details so we can reverse the balance
+        payment = self.get_payment(payment_id)
+        if not payment:
+            return
+
+        user_id = payment["user_id"]
+        group_id = payment["group_id"]
+        amount = float(payment["amount"])
+        payment_type = payment["payment_type"]
+
+        # Delete the payment
+        with self._conn() as conn:
+            conn.execute("DELETE FROM payments WHERE payment_id = ?", (payment_id,))
+
+        # Reverse the balance adjustment
+        if payment_type == "CHARGE":
+            # CHARGE increased balance, so subtract it back
+            self.update_member_balance(user_id, group_id, -amount)
+        elif payment_type == "CREDIT":
+            # CREDIT decreased balance, so add it back
+            self.update_member_balance(user_id, group_id, amount)
 
     # ============= MESSAGE OPERATIONS =============
 

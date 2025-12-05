@@ -3,8 +3,8 @@ import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
-import api, { Payment, CreatePaymentRequest, Member, MemberBalance } from '../api/api-client';
-import { DollarSign, Plus, Check, X, Users, AlertCircle } from 'lucide-react';
+import api, { Payment, CreatePaymentRequest, Member, MemberBalance, PaymentStatistics } from '../api/api-client';
+import { DollarSign, Plus, Check, X, Users, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 
 const PaymentsPage: React.FC = () => {
     const { user } = useAuth();
@@ -13,17 +13,23 @@ const PaymentsPage: React.FC = () => {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [balances, setBalances] = useState<MemberBalance[]>([]);
-    const [myBalance, setMyBalance] = useState<MemberBalance | null>(null);
+    const [myBalance, setMyBalance] = useState<number>(0);
+    const [statistics, setStatistics] = useState<PaymentStatistics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showBulkChargeModal, setShowBulkChargeModal] = useState(false);
+    const [showBulkCreditModal, setShowBulkCreditModal] = useState(false);
+    const [showPayNowModal, setShowPayNowModal] = useState(false);
+    const [paymentAmount, setPaymentAmount] = useState<number>(0);
+    const [cardNumber, setCardNumber] = useState('');
 
     const [formData, setFormData] = useState<CreatePaymentRequest>({
         user_id: '',
         amount: 0,
         description: '',
+        payment_type: 'CHARGE',
     });
 
     const [bulkChargeData, setbulkChargeData] = useState({
@@ -32,7 +38,13 @@ const PaymentsPage: React.FC = () => {
         description: '',
     });
 
-    const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
+    const [bulkCreditData, setBulkCreditData] = useState({
+        user_ids: [] as string[],
+        amount: 0,
+        description: '',
+    });
+
+    const [filterStatus, setFilterStatus] = useState<'all' | 'PAID' | 'PENDING'>('all');
 
     useEffect(() => {
         fetchData();
@@ -42,17 +54,29 @@ const PaymentsPage: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            const [paymentsData, membersData, balancesData, myBalanceData] = await Promise.all([
-                api.payments.getAll(),
-                api.members.getAll(),
-                api.payments.getBalances(),
-                api.payments.getMyBalance(),
-            ]);
+            if (isAdmin) {
+                const [paymentsData, membersData, balancesData, myBalanceData, statsData] = await Promise.all([
+                    api.payments.getAll(),
+                    api.members.getAll(),
+                    api.payments.getBalances(),
+                    api.payments.getMyBalance(),
+                    api.payments.getStatistics(),
+                ]);
 
-            setPayments(paymentsData);
-            setMembers(membersData);
-            setBalances(balancesData);
-            setMyBalance(myBalanceData);
+                setPayments(paymentsData);
+                setMembers(membersData);
+                setBalances(balancesData);
+                setMyBalance(myBalanceData.balance);
+                setStatistics(statsData);
+            } else {
+                const [paymentsData, myBalanceData] = await Promise.all([
+                    api.payments.getAll(),
+                    api.payments.getMyBalance(),
+                ]);
+
+                setPayments(paymentsData);
+                setMyBalance(myBalanceData.balance);
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to load payments data');
         } finally {
@@ -80,8 +104,27 @@ const PaymentsPage: React.FC = () => {
         });
     };
 
+    const handleBulkCreditChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
+        const { name, value } = e.target;
+        setBulkCreditData({
+            ...bulkCreditData,
+            [name]: name === 'amount' ? parseFloat(value) || 0 : value,
+        });
+    };
+
     const toggleMemberForBulkCharge = (userId: string) => {
         setbulkChargeData((prev) => ({
+            ...prev,
+            user_ids: prev.user_ids.includes(userId)
+                ? prev.user_ids.filter((id) => id !== userId)
+                : [...prev.user_ids, userId],
+        }));
+    };
+
+    const toggleMemberForBulkCredit = (userId: string) => {
+        setBulkCreditData((prev) => ({
             ...prev,
             user_ids: prev.user_ids.includes(userId)
                 ? prev.user_ids.filter((id) => id !== userId)
@@ -101,7 +144,7 @@ const PaymentsPage: React.FC = () => {
             await api.payments.create(formData);
             await fetchData();
             setShowCreateModal(false);
-            setFormData({ user_id: '', amount: 0, description: '' });
+            setFormData({ user_id: '', amount: 0, description: '', payment_type: 'CHARGE' });
         } catch (err: any) {
             alert(err.message || 'Failed to create payment');
         }
@@ -129,9 +172,31 @@ const PaymentsPage: React.FC = () => {
         }
     };
 
+    const handleBulkCredit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (
+            bulkCreditData.user_ids.length === 0 ||
+            bulkCreditData.amount <= 0 ||
+            !bulkCreditData.description
+        ) {
+            alert('Please select members and fill in all fields');
+            return;
+        }
+
+        try {
+            await api.payments.bulkCredit(bulkCreditData);
+            await fetchData();
+            setShowBulkCreditModal(false);
+            setBulkCreditData({ user_ids: [], amount: 0, description: '' });
+        } catch (err: any) {
+            alert(err.message || 'Failed to create bulk credits');
+        }
+    };
+
     const handleMarkPaid = async (paymentId: string) => {
         try {
-            await api.payments.updateStatus(paymentId, 'paid');
+            await api.payments.updateStatus(paymentId, 'PAID');
             await fetchData();
         } catch (err: any) {
             alert(err.message || 'Failed to update payment status');
@@ -140,7 +205,7 @@ const PaymentsPage: React.FC = () => {
 
     const handleMarkUnpaid = async (paymentId: string) => {
         try {
-            await api.payments.updateStatus(paymentId, 'unpaid');
+            await api.payments.updateStatus(paymentId, 'PENDING');
             await fetchData();
         } catch (err: any) {
             alert(err.message || 'Failed to update payment status');
@@ -158,13 +223,60 @@ const PaymentsPage: React.FC = () => {
         }
     };
 
+    const handlePayNowClick = () => {
+        // Default to full balance
+        setPaymentAmount(myBalance > 0 ? myBalance : 0);
+        setCardNumber('');
+        setShowPayNowModal(true);
+    };
+
+    const handlePayNowSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Validate fake card number (just needs to be 16 digits)
+        if (cardNumber.replace(/\s/g, '').length !== 16 || !/^\d+$/.test(cardNumber.replace(/\s/g, ''))) {
+            alert('Please enter a valid 16-digit card number');
+            return;
+        }
+
+        if (paymentAmount <= 0) {
+            alert('Please enter a valid payment amount');
+            return;
+        }
+
+        try {
+            // Get all pending charges for the current user, sorted by date
+            const myPendingCharges = myPayments
+                .filter(p => p.payment_type === 'CHARGE' && p.status === 'PENDING')
+                .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+            let remainingAmount = paymentAmount;
+
+            // Mark charges as paid until we've used up the payment amount
+            for (const charge of myPendingCharges) {
+                if (remainingAmount <= 0) break;
+
+                await api.payments.updateStatus(charge.payment_id, 'PAID');
+                remainingAmount -= charge.amount;
+            }
+
+            await fetchData();
+            setShowPayNowModal(false);
+            setPaymentAmount(0);
+            setCardNumber('');
+            alert('Payment successful!');
+        } catch (err: any) {
+            alert(err.message || 'Failed to process payment');
+        }
+    };
+
     const filteredPayments = payments.filter((p) => {
         if (filterStatus === 'all') return true;
         return p.status === filterStatus;
     });
 
-    const totalOwed = balances.reduce((sum, b) => sum + b.balance, 0);
-    const unpaidCount = payments.filter((p) => p.status === 'unpaid').length;
+    // Get admin's own payments
+    const myPayments = isAdmin ? payments.filter(p => p.user_id === user?.id) : payments;
 
     if (loading) {
         return (
@@ -179,11 +291,11 @@ const PaymentsPage: React.FC = () => {
         );
     }
 
-    // --- Shared Payment History content so we can reuse it in both layouts ---
-    const paymentHistoryCard = (
+    // --- Payment history component (reusable) ---
+    const renderPaymentHistory = (paymentsToShow: Payment[], title: string = "Payment History") => (
         <div className="card">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Payment History</h2>
+                <h2 className="text-xl font-bold text-gray-900">{title}</h2>
                 <div className="flex space-x-2">
                     <button
                         onClick={() => setFilterStatus('all')}
@@ -195,8 +307,8 @@ const PaymentsPage: React.FC = () => {
                         All
                     </button>
                     <button
-                        onClick={() => setFilterStatus('unpaid')}
-                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'unpaid'
+                        onClick={() => setFilterStatus('PENDING')}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'PENDING'
                                 ? 'bg-primary-600 text-white'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
@@ -204,8 +316,8 @@ const PaymentsPage: React.FC = () => {
                         Unpaid
                     </button>
                     <button
-                        onClick={() => setFilterStatus('paid')}
-                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'paid'
+                        onClick={() => setFilterStatus('PAID')}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'PAID'
                                 ? 'bg-primary-600 text-white'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
@@ -215,14 +327,14 @@ const PaymentsPage: React.FC = () => {
                 </div>
             </div>
 
-            {filteredPayments.length === 0 ? (
+            {paymentsToShow.length === 0 ? (
                 <div className="text-center py-8">
                     <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600">No payments found</p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {filteredPayments.map((payment) => (
+                    {paymentsToShow.map((payment) => (
                         <div
                             key={payment.payment_id}
                             className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -230,12 +342,32 @@ const PaymentsPage: React.FC = () => {
                             <div className="flex-1">
                                 <div className="flex items-center space-x-3">
                                     <span
-                                        className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'paid'
+                                        className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'PAID'
                                                 ? 'bg-green-100 text-green-800'
-                                                : 'bg-orange-100 text-orange-800'
+                                                : payment.status === 'PENDING'
+                                                    ? 'bg-orange-100 text-orange-800'
+                                                    : 'bg-red-100 text-red-800'
                                             }`}
                                     >
                                         {payment.status}
+                                    </span>
+                                    <span
+                                        className={`px-2 py-1 rounded-full text-xs font-medium ${payment.payment_type === 'CHARGE'
+                                                ? 'bg-blue-100 text-blue-800'
+                                                : 'bg-purple-100 text-purple-800'
+                                            }`}
+                                    >
+                                        {payment.payment_type === 'CHARGE' ? (
+                                            <span className="flex items-center space-x-1">
+                                                <TrendingUp className="h-3 w-3" />
+                                                <span>CHARGE</span>
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center space-x-1">
+                                                <TrendingDown className="h-3 w-3" />
+                                                <span>CREDIT</span>
+                                            </span>
+                                        )}
                                     </span>
                                     <p className="font-medium text-gray-900">{payment.user_name}</p>
                                 </div>
@@ -246,13 +378,14 @@ const PaymentsPage: React.FC = () => {
                             </div>
 
                             <div className="flex items-center space-x-4">
-                                <p className="text-lg font-bold text-gray-900">
-                                    ${payment.amount.toFixed(2)}
+                                <p className={`text-lg font-bold ${payment.payment_type === 'CREDIT' ? 'text-green-600' : 'text-gray-900'
+                                    }`}>
+                                    {payment.payment_type === 'CREDIT' ? '+' : ''}${payment.amount.toFixed(2)}
                                 </p>
 
                                 {isAdmin && (
                                     <div className="flex space-x-2">
-                                        {payment.status === 'unpaid' ? (
+                                        {payment.status === 'PENDING' && payment.payment_type === 'CHARGE' ? (
                                             <button
                                                 onClick={() => handleMarkPaid(payment.payment_id)}
                                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -260,7 +393,7 @@ const PaymentsPage: React.FC = () => {
                                             >
                                                 <Check className="h-4 w-4" />
                                             </button>
-                                        ) : (
+                                        ) : payment.status === 'PAID' && payment.payment_type === 'CHARGE' ? (
                                             <button
                                                 onClick={() => handleMarkUnpaid(payment.payment_id)}
                                                 className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
@@ -268,7 +401,7 @@ const PaymentsPage: React.FC = () => {
                                             >
                                                 <X className="h-4 w-4" />
                                             </button>
-                                        )}
+                                        ) : null}
                                         <button
                                             onClick={() => handleDelete(payment.payment_id)}
                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -299,6 +432,14 @@ const PaymentsPage: React.FC = () => {
                         <div className="flex space-x-3">
                             <Button
                                 variant="secondary"
+                                onClick={() => setShowBulkCreditModal(true)}
+                                className="flex items-center space-x-2"
+                            >
+                                <TrendingDown className="h-4 w-4" />
+                                <span>Bulk Credit</span>
+                            </Button>
+                            <Button
+                                variant="secondary"
                                 onClick={() => setShowBulkChargeModal(true)}
                                 className="flex items-center space-x-2"
                             >
@@ -323,31 +464,19 @@ const PaymentsPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Top stats row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {isAdmin ? (
-                        <>
+                {/* Admin View */}
+                {isAdmin ? (
+                    <>
+                        {/* Statistics Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="card">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Total Owed</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">
-                                            ${totalOwed.toFixed(2)}
+                                        <p className="text-sm font-medium text-gray-600">Total Money Owed</p>
+                                        <p className="text-2xl font-bold text-orange-600 mt-1">
+                                            ${statistics?.total_money_owed.toFixed(2) || '0.00'}
                                         </p>
-                                    </div>
-                                    <div className="p-3 bg-primary-100 rounded-lg">
-                                        <DollarSign className="h-6 w-6 text-primary-600" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="card">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Unpaid</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">
-                                            {unpaidCount}
-                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">Unpaid charges</p>
                                     </div>
                                     <div className="p-3 bg-orange-100 rounded-lg">
                                         <AlertCircle className="h-6 w-6 text-orange-600" />
@@ -358,29 +487,187 @@ const PaymentsPage: React.FC = () => {
                             <div className="card">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Total Payments</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">
-                                            {payments.length}
+                                        <p className="text-sm font-medium text-gray-600">Total Money Collected</p>
+                                        <p className="text-2xl font-bold text-green-600 mt-1">
+                                            ${statistics?.total_money_collected.toFixed(2) || '0.00'}
                                         </p>
+                                        <p className="text-xs text-gray-500 mt-1">Paid charges</p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-lg">
                                         <Check className="h-6 w-6 text-green-600" />
                                     </div>
                                 </div>
                             </div>
-                        </>
-                    ) : (
+
+                            <div className="card">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Total Payments</p>
+                                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                                            {statistics?.total_payments_count || 0}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">All records</p>
+                                    </div>
+                                    <div className="p-3 bg-primary-100 rounded-lg">
+                                        <DollarSign className="h-6 w-6 text-primary-600" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Admin Personal Section */}
+                        <div className="card bg-blue-50 border-2 border-blue-200">
+                            <div className="flex items-start justify-between mb-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-900">Your Personal Payments</h2>
+                                    <p className="text-sm text-gray-600 mt-1">Your balance and payment history</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-medium text-gray-600">Your Balance</p>
+                                    <p className={`text-3xl font-bold mt-1 ${myBalance < 0 ? 'text-red-600' : myBalance > 0 ? 'text-orange-600' : 'text-green-600'
+                                        }`}>
+                                        ${Math.abs(myBalance).toFixed(2)}
+                                    </p>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        {myBalance < 0 ? 'Credit balance' : myBalance > 0 ? 'Amount owed' : 'All paid up!'}
+                                    </p>
+                                    {myBalance > 0 && (
+                                        <button
+                                            onClick={handlePayNowClick}
+                                            className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                        >
+                                            Pay Now
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {myPayments.length > 0 ? (
+                                <div className="space-y-2 mt-4">
+                                    {myPayments.slice(0, 5).map((payment) => (
+                                        <div
+                                            key={payment.payment_id}
+                                            className="flex items-center justify-between p-3 bg-white rounded-lg"
+                                        >
+                                            <div className="flex-1">
+                                                <div className="flex items-center space-x-2">
+                                                    <span
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'PAID'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : 'bg-orange-100 text-orange-800'
+                                                            }`}
+                                                    >
+                                                        {payment.status}
+                                                    </span>
+                                                    <span
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium ${payment.payment_type === 'CHARGE'
+                                                                ? 'bg-blue-100 text-blue-800'
+                                                                : 'bg-purple-100 text-purple-800'
+                                                            }`}
+                                                    >
+                                                        {payment.payment_type}
+                                                    </span>
+                                                    <p className="text-sm text-gray-900">{payment.description}</p>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {new Date(payment.created_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <p className={`text-sm font-bold ${payment.payment_type === 'CREDIT' ? 'text-green-600' : 'text-gray-900'
+                                                }`}>
+                                                {payment.payment_type === 'CREDIT' ? '+' : ''}${payment.amount.toFixed(2)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                    {myPayments.length > 5 && (
+                                        <p className="text-xs text-gray-600 text-center mt-2">
+                                            Showing 5 of {myPayments.length} payments
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center py-6 bg-white rounded-lg">
+                                    <p className="text-sm text-gray-600">No payments yet</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Member Balances and All Payments */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left: Member balances */}
+                            <div className="card">
+                                <h2 className="text-xl font-bold text-gray-900 mb-4">Member Balances</h2>
+                                {balances.length === 0 ? (
+                                    <p className="text-sm text-gray-500">
+                                        No members with balances yet.
+                                    </p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead>
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Member
+                                                    </th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Balance
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {balances.map((balance) => (
+                                                    <tr key={balance.user_id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {balance.user_name}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                            <span
+                                                                className={`text-sm font-semibold ${balance.balance < 0
+                                                                        ? 'text-green-600'
+                                                                        : balance.balance > 0
+                                                                            ? 'text-orange-600'
+                                                                            : 'text-gray-600'
+                                                                    }`}
+                                                            >
+                                                                ${Math.abs(balance.balance).toFixed(2)}
+                                                                {balance.balance < 0 ? ' (credit)' : balance.balance > 0 ? ' (owed)' : ''}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right: Payment history */}
+                            {renderPaymentHistory(filteredPayments, "All Member Payments")}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Member View */}
                         <div className="card md:col-span-3">
                             <div className="flex items-center justify-between">
-                                <div>
+                                <div className="flex-1">
                                     <p className="text-sm font-medium text-gray-600">Your Balance</p>
-                                    <p className="text-3xl font-bold text-gray-900 mt-1">
-                                        ${myBalance?.balance.toFixed(2) || '0.00'}
+                                    <p className={`text-3xl font-bold mt-1 ${myBalance < 0 ? 'text-green-600' : myBalance > 0 ? 'text-orange-600' : 'text-gray-900'
+                                        }`}>
+                                        ${Math.abs(myBalance).toFixed(2)}
                                     </p>
-                                    {myBalance && myBalance.balance > 0 && (
-                                        <p className="text-sm text-orange-600 mt-2">
-                                            You have outstanding payments
-                                        </p>
+                                    <p className="text-sm text-gray-600 mt-2">
+                                        {myBalance < 0 ? 'You have a credit balance' : myBalance > 0 ? 'You have outstanding payments' : 'All paid up!'}
+                                    </p>
+                                    {myBalance > 0 && (
+                                        <button
+                                            onClick={handlePayNowClick}
+                                            className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                        >
+                                            Pay Now
+                                        </button>
                                     )}
                                 </div>
                                 <div className="p-4 bg-primary-100 rounded-lg">
@@ -388,64 +675,10 @@ const PaymentsPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                    )}
-                </div>
 
-                {/* Main content row: 2 columns for admin, 1 column for members */}
-                {isAdmin ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Left: Member balances */}
-                        <div className="card">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Member Balances</h2>
-                            {balances.length === 0 ? (
-                                <p className="text-sm text-gray-500">
-                                    No members with balances yet.
-                                </p>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead>
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Member
-                                                </th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Balance Owed
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {balances.map((balance) => (
-                                                <tr key={balance.user_id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="text-sm font-medium text-gray-900">
-                                                            {balance.user_name}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                        <span
-                                                            className={`text-sm font-semibold ${balance.balance > 0
-                                                                    ? 'text-orange-600'
-                                                                    : 'text-green-600'
-                                                                }`}
-                                                        >
-                                                            ${balance.balance.toFixed(2)}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Right: Payment history */}
-                        {paymentHistoryCard}
-                    </div>
-                ) : (
-                    // Non-admins: just show payment history full width
-                    paymentHistoryCard
+                        {/* Payment history for members */}
+                        {renderPaymentHistory(filteredPayments)}
+                    </>
                 )}
 
                 {/* Create Payment Modal */}
@@ -477,9 +710,25 @@ const PaymentsPage: React.FC = () => {
                                         <option value="">Select a member</option>
                                         {members.map((member) => (
                                             <option key={member.user_id} value={member.user_id}>
-                                                {member.display_name}
+                                                {member.display_name || member.email}
                                             </option>
                                         ))}
+                                    </select>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Payment Type
+                                    </label>
+                                    <select
+                                        name="payment_type"
+                                        value={formData.payment_type}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                                        required
+                                    >
+                                        <option value="CHARGE">Charge (Member owes money)</option>
+                                        <option value="CREDIT">Credit (Apply credit to member)</option>
                                     </select>
                                 </div>
 
@@ -558,7 +807,7 @@ const PaymentsPage: React.FC = () => {
                                                     className="rounded text-primary-600 focus:ring-primary-500"
                                                 />
                                                 <span className="text-sm text-gray-900">
-                                                    {member.display_name}
+                                                    {member.display_name || member.email}
                                                 </span>
                                             </label>
                                         ))}
@@ -600,6 +849,211 @@ const PaymentsPage: React.FC = () => {
                                     </Button>
                                     <Button type="submit" fullWidth>
                                         Charge Members
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk Credit Modal */}
+                {showBulkCreditModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900">Bulk Credit</h2>
+                                <button
+                                    onClick={() => setShowBulkCreditModal(false)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleBulkCredit}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Select Members
+                                    </label>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                        {members.map((member) => (
+                                            <label
+                                                key={member.user_id}
+                                                className="flex items-center space-x-2 cursor-pointer"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={bulkCreditData.user_ids.includes(
+                                                        member.user_id
+                                                    )}
+                                                    onChange={() =>
+                                                        toggleMemberForBulkCredit(member.user_id)
+                                                    }
+                                                    className="rounded text-primary-600 focus:ring-primary-500"
+                                                />
+                                                <span className="text-sm text-gray-900">
+                                                    {member.display_name || member.email}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        {bulkCreditData.user_ids.length} member(s) selected
+                                    </p>
+                                </div>
+
+                                <Input
+                                    label="Credit Amount per Member"
+                                    type="number"
+                                    name="amount"
+                                    value={bulkCreditData.amount || ''}
+                                    onChange={handleBulkCreditChange}
+                                    placeholder="0.00"
+                                    step="0.01"
+                                    min="0.01"
+                                    required
+                                />
+
+                                <Input
+                                    label="Description"
+                                    name="description"
+                                    value={bulkCreditData.description}
+                                    onChange={handleBulkCreditChange}
+                                    placeholder="Refund, overpayment credit, etc."
+                                    required
+                                />
+
+                                <div className="flex space-x-3">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        fullWidth
+                                        onClick={() => setShowBulkCreditModal(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" fullWidth>
+                                        Credit Members
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Pay Now Modal */}
+                {showPayNowModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl p-6 max-w-md w-full">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900">Pay Now</h2>
+                                <button
+                                    onClick={() => setShowPayNowModal(false)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm text-gray-600">Your Current Balance:</span>
+                                    <span className="text-2xl font-bold text-orange-600">${myBalance.toFixed(2)}</span>
+                                </div>
+                                <p className="text-xs text-gray-500">You can pay your full balance or a custom amount</p>
+                            </div>
+
+                            <form onSubmit={handlePayNowSubmit}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Payment Amount
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={paymentAmount || ''}
+                                        onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                                        placeholder="0.00"
+                                        step="0.01"
+                                        min="0.01"
+                                        max={myBalance}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-lg"
+                                        required
+                                    />
+                                    <div className="flex space-x-2 mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentAmount(myBalance)}
+                                            className="px-3 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+                                        >
+                                            Pay Full Balance (${myBalance.toFixed(2)})
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Card Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={cardNumber}
+                                        onChange={(e) => {
+                                            // Auto-format with spaces every 4 digits
+                                            const value = e.target.value.replace(/\s/g, '');
+                                            if (/^\d*$/.test(value) && value.length <= 16) {
+                                                const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+                                                setCardNumber(formatted);
+                                            }
+                                        }}
+                                        placeholder="1234 5678 9012 3456"
+                                        maxLength={19}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-lg tracking-wider"
+                                        required
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        This is a test environment. Enter any 16-digit number.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Expiry Date
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="MM/YY"
+                                            defaultValue="12/25"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            CVV
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="123"
+                                            defaultValue="123"
+                                            maxLength={3}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-3">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        fullWidth
+                                        onClick={() => setShowPayNowModal(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" fullWidth>
+                                        Pay ${paymentAmount.toFixed(2)}
                                     </Button>
                                 </div>
                             </form>
