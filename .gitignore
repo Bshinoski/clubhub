@@ -2,14 +2,24 @@
 __pycache__/
 *.pyc
 backend/.venv/
+backend/venv/
+backend/.env
+backend/*.db
 backend/clubapp_local.db
 
 # Node
 frontend/node_modules/
 frontend/.env
+frontend/.env.local
+frontend/dist/
 dist/
+
+# Uploads
+backend/uploads/
+uploads/
 
 # Misc
 .DS_Store
 *.log
 .vs
+.vscode/
