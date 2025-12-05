@@ -2,8 +2,8 @@
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api, { Member, Event, MemberBalance } from '../api/api-client';
-import { Users, Calendar, DollarSign, Camera, TrendingUp, AlertCircle } from 'lucide-react';
+import api, { Member, Event, MemberBalance, PaymentStatistics } from '../api/api-client';
+import { Users, Calendar, Clock, DollarSign, Camera, TrendingUp, AlertCircle } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
     const { user } = useAuth();
@@ -17,6 +17,7 @@ const AdminDashboard: React.FC = () => {
     });
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
     const [topBalances, setTopBalances] = useState<MemberBalance[]>([]);
+    const [paymentStats, setPaymentStats] = useState<PaymentStatistics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -28,12 +29,13 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            // Fetch all data in parallel
-            const [membersData, eventsData, balancesData, photoCountData] = await Promise.all([
+            // Fetch all data in parallel - using same pattern as PaymentsPage
+            const [membersData, eventsData, balancesData, photoCountData, statsData] = await Promise.all([
                 api.members.getAll(),
-                api.events.getUpcoming({ limit: 3 }),
+                api.events.getUpcoming(3),
                 api.payments.getBalances(),
                 api.photos.getCount(),
+                api.payments.getStatistics(),
             ]);
 
             // Calculate stats
@@ -54,6 +56,7 @@ const AdminDashboard: React.FC = () => {
 
             setUpcomingEvents(eventsData);
             setTopBalances(topOwing);
+            setPaymentStats(statsData);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
         } finally {
@@ -192,11 +195,11 @@ const AdminDashboard: React.FC = () => {
                                                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                                                     <span className="flex items-center">
                                                         <Calendar className="h-3 w-3 mr-1" />
-                                                        {formatDate(event.date)}
+                                                        {formatDate(event.event_date)}
                                                     </span>
                                                     <span className="flex items-center">
                                                         <Clock className="h-3 w-3 mr-1" />
-                                                        {formatTime(event.time)}
+                                                        {formatTime(event.event_time)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -242,6 +245,39 @@ const AdminDashboard: React.FC = () => {
                         )}
                     </div>
                 </div>
+
+                {/* Payment Statistics */}
+                {paymentStats && (
+                    <div className="card">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Payment Statistics</h2>
+                            <TrendingUp className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="p-4 bg-green-50 rounded-lg">
+                                <p className="text-sm text-green-700 font-medium">Total Collected</p>
+                                <p className="text-3xl font-bold text-green-900 mt-2">
+                                    ${paymentStats.total_money_collected.toFixed(2)}
+                                </p>
+                            </div>
+                            <div className="p-4 bg-orange-50 rounded-lg">
+                                <p className="text-sm text-orange-700 font-medium">Total Outstanding</p>
+                                <p className="text-3xl font-bold text-orange-900 mt-2">
+                                    ${paymentStats.total_money_owed.toFixed(2)}
+                                </p>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="text-sm text-gray-600">Total Payments</p>
+                                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                                        {paymentStats.total_payments_count}
+                                    </p>
+                                </div>
+                                <DollarSign className="h-8 w-8 text-gray-400" />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Quick Actions */}
                 <div className="card">

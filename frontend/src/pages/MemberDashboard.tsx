@@ -2,8 +2,8 @@
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api, { Event, Payment, MemberBalance } from '../api/api-client';
-import { Calendar, Clock, DollarSign, Camera, Users, MapPin, AlertCircle } from 'lucide-react';
+import api, { Event, Payment, Member } from '../api/api-client';
+import { Calendar, Clock, DollarSign, Camera, Users, MapPin, AlertCircle, UserCheck } from 'lucide-react';
 
 const MemberDashboard: React.FC = () => {
     const { user } = useAuth();
@@ -16,6 +16,8 @@ const MemberDashboard: React.FC = () => {
     });
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
     const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
+    const [teamMembers, setTeamMembers] = useState<Member[]>([]);
+    const [nextEvent, setNextEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -27,18 +29,21 @@ const MemberDashboard: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            // Fetch all data in parallel
-            const [eventsData, paymentsData, myBalanceData, photoCountData] = await Promise.all([
-                api.events.getUpcoming({ limit: 3 }),
+            // Fetch all data in parallel - using same pattern as PaymentsPage
+            const [eventsData, paymentsData, myBalanceData, photoCountData, membersData] = await Promise.all([
+                api.events.getUpcoming(3),
                 api.payments.getAll(), // Will need to filter for current user
                 api.payments.getMyBalance(),
                 api.photos.getCount(),
+                api.members.getAll(),
             ]);
 
             // Filter payments for current user
             const myPayments = paymentsData.filter(p => p.user_id === user?.id);
-            const myUnpaid = myPayments.filter(p => p.status === 'unpaid').length;
-            const recentUserPayments = myPayments.slice(0, 5);
+            const myUnpaid = myPayments.filter(p => p.status === 'PENDING' || p.status === 'OVERDUE').length;
+            const recentUserPayments = myPayments
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                .slice(0, 5);
 
             setStats({
                 upcomingEvents: eventsData.length,
@@ -49,6 +54,8 @@ const MemberDashboard: React.FC = () => {
 
             setUpcomingEvents(eventsData);
             setRecentPayments(recentUserPayments);
+            setTeamMembers(membersData);
+            setNextEvent(eventsData.length > 0 ? eventsData[0] : null);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
         } finally {
@@ -71,6 +78,28 @@ const MemberDashboard: React.FC = () => {
         const ampm = hour >= 12 ? 'PM' : 'AM';
         const displayHour = hour % 12 || 12;
         return `${displayHour}:${minutes} ${ampm}`;
+    };
+
+    const getTimeUntilEvent = (event: Event | null) => {
+        if (!event) return null;
+
+        const eventDateTime = new Date(`${event.event_date}T${event.event_time}`);
+        const now = new Date();
+        const diffMs = eventDateTime.getTime() - now.getTime();
+
+        if (diffMs < 0) return 'Started';
+
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (diffDays > 0) {
+            return `${diffDays} day${diffDays !== 1 ? 's' : ''}, ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+        } else if (diffHours > 0) {
+            return `${diffHours} hour${diffHours !== 1 ? 's' : ''}, ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        } else {
+            return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        }
     };
 
     if (loading) {
@@ -206,16 +235,18 @@ const MemberDashboard: React.FC = () => {
                                         <div className="space-y-1 text-sm text-gray-600">
                                             <div className="flex items-center">
                                                 <Calendar className="h-3 w-3 mr-2" />
-                                                {formatDate(event.date)}
+                                                {formatDate(event.event_date)}
                                             </div>
                                             <div className="flex items-center">
                                                 <Clock className="h-3 w-3 mr-2" />
-                                                {formatTime(event.time)}
+                                                {formatTime(event.event_time)}
                                             </div>
-                                            <div className="flex items-center">
-                                                <MapPin className="h-3 w-3 mr-2" />
-                                                {event.location}
-                                            </div>
+                                            {event.location && (
+                                                <div className="flex items-center">
+                                                    <MapPin className="h-3 w-3 mr-2" />
+                                                    {event.location}
+                                                </div>
+                                            )}
                                         </div>
                                         {event.description && (
                                             <p className="text-sm text-gray-700 mt-2 pt-2 border-t border-primary-200">
@@ -267,6 +298,102 @@ const MemberDashboard: React.FC = () => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Next Event Countdown & Team Roster */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Next Event Countdown */}
+                    <div className="card">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Next Event</h2>
+                            <Clock className="h-5 w-5 text-blue-600" />
+                        </div>
+
+                        {nextEvent ? (
+                            <div className="space-y-4">
+                                <div className="p-5 bg-gradient-to-br from-blue-50 to-primary-50 rounded-lg border border-blue-200">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3">{nextEvent.title}</h3>
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-gray-600 mb-1">Date</p>
+                                            <p className="font-semibold text-gray-900">{formatDate(nextEvent.event_date)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-gray-600 mb-1">Time</p>
+                                            <p className="font-semibold text-gray-900">{formatTime(nextEvent.event_time)}</p>
+                                        </div>
+                                    </div>
+                                    {nextEvent.location && (
+                                        <div className="mt-3 pt-3 border-t border-blue-200">
+                                            <p className="text-gray-600 text-sm mb-1">Location</p>
+                                            <p className="font-medium text-gray-900">{nextEvent.location}</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-center p-4 bg-blue-100 rounded-lg">
+                                    <p className="text-sm text-blue-700 font-medium mb-1">Time until event</p>
+                                    <p className="text-2xl font-bold text-blue-900">{getTimeUntilEvent(nextEvent)}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                <p className="text-gray-600 text-sm">No upcoming events</p>
+                                <Link to="/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                                    Check schedule
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Team Roster Quick View */}
+                    <div className="card">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Team Roster</h2>
+                            <Link to="/roster" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                                View all
+                            </Link>
+                        </div>
+
+                        {teamMembers.length === 0 ? (
+                            <div className="text-center py-8">
+                                <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                <p className="text-gray-600 text-sm">No team members</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg border border-primary-200 mb-3">
+                                    <div className="flex items-center space-x-2">
+                                        <Users className="h-5 w-5 text-primary-600" />
+                                        <span className="font-semibold text-gray-900">Total Members</span>
+                                    </div>
+                                    <span className="text-2xl font-bold text-primary-600">{teamMembers.length}</span>
+                                </div>
+                                <div className="max-h-64 overflow-y-auto space-y-2">
+                                    {teamMembers.slice(0, 10).map((member) => (
+                                        <div key={member.user_id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                            <div className="flex items-center space-x-2">
+                                                <UserCheck className="h-4 w-4 text-gray-400" />
+                                                <span className="text-sm font-medium text-gray-900">
+                                                    {member.display_name || member.email}
+                                                </span>
+                                            </div>
+                                            {member.role === 'admin' && (
+                                                <span className="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs font-medium rounded">
+                                                    Admin
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                {teamMembers.length > 10 && (
+                                    <Link to="/roster" className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium pt-2">
+                                        View {teamMembers.length - 10} more members
+                                    </Link>
+                                )}
                             </div>
                         )}
                     </div>
