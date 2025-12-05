@@ -751,9 +751,29 @@ class LocalDBService:
 
     # ============= MESSAGE OPERATIONS =============
 
-    def create_message(self, group_id: int, user_id: str, user_name: str, content: str) -> Dict[str, Any]:
-        message_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+    def create_message(self, message_data_or_group_id, user_id: str = None, user_name: str = None, content: str = None) -> Dict[str, Any]:
+        """
+        Create a message. Accepts either:
+        - A dict with message_id, group_id, user_id, content, created_at
+        - Individual parameters (group_id, user_id, user_name, content)
+        """
+        if isinstance(message_data_or_group_id, dict):
+            # Dict format from chat API
+            message_data = message_data_or_group_id
+            message_id = message_data['message_id']
+            group_id = message_data['group_id']
+            user_id = message_data['user_id']
+            content = message_data['content']
+            created_at = message_data.get('created_at', datetime.utcnow().isoformat())
+
+            # Get user_name from database if not in message_data
+            user = self.get_user_by_id(user_id)
+            user_name = user.get('display_name', user['email']) if user else 'Unknown'
+        else:
+            # Individual parameters format (legacy)
+            message_id = str(uuid.uuid4())
+            group_id = message_data_or_group_id
+            created_at = datetime.utcnow().isoformat()
 
         with self._conn() as conn:
             conn.execute(
@@ -762,7 +782,7 @@ class LocalDBService:
                     (message_id, group_id, user_id, user_name, content, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (message_id, group_id, user_id, user_name, content, now),
+                (message_id, group_id, user_id, user_name, content, created_at),
             )
 
         return self.get_message(message_id)
@@ -775,20 +795,45 @@ class LocalDBService:
             row = cur.fetchone()
             return dict(row) if row else None
 
-    def get_group_messages(self, group_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_message_by_id(self, message_id: str) -> Optional[Dict[str, Any]]:
+        """Alias for get_message for API compatibility"""
+        return self.get_message(message_id)
+
+    def get_group_messages(self, group_id: int, limit: int = 50, before: str = None) -> List[Dict[str, Any]]:
+        """Get messages for a group, optionally paginated with before cursor"""
         with self._conn() as conn:
-            cur = conn.execute(
-                """
-                SELECT * FROM messages
-                WHERE group_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-                """,
-                (group_id, limit),
-            )
+            if before:
+                cur = conn.execute(
+                    """
+                    SELECT * FROM messages
+                    WHERE group_id = ? AND created_at < ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (group_id, before, limit),
+                )
+            else:
+                cur = conn.execute(
+                    """
+                    SELECT * FROM messages
+                    WHERE group_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (group_id, limit),
+                )
             rows = cur.fetchall()
             # oldest first for the frontend
             return [dict(r) for r in reversed(rows)]
+
+    def delete_message(self, message_id: str) -> bool:
+        """Delete a message by ID"""
+        with self._conn() as conn:
+            cursor = conn.execute(
+                "DELETE FROM messages WHERE message_id = ?",
+                (message_id,)
+            )
+            return cursor.rowcount > 0
 
     # ============= PHOTO OPERATIONS =============
 
