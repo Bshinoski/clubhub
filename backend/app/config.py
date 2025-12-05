@@ -14,8 +14,18 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = "sqlite:///./clubhub.db"  # Use /tmp/clubhub.db for Lambda
+    USE_DYNAMODB: bool = False  # Set to True to use DynamoDB instead of SQLite
 
-    # DynamoDB
+    # DynamoDB Table Names
+    DYNAMODB_USERS_TABLE: str = "ClubHub-Users"
+    DYNAMODB_GROUPS_TABLE: str = "ClubHub-Groups"
+    DYNAMODB_GROUP_MEMBERS_TABLE: str = "ClubHub-GroupMembers"
+    DYNAMODB_EVENTS_TABLE: str = "ClubHub-Events"
+    DYNAMODB_PAYMENTS_TABLE: str = "ClubHub-Payments"
+    DYNAMODB_MESSAGES_TABLE: str = "ClubHub-Messages"
+    DYNAMODB_PHOTOS_TABLE: str = "ClubHub-Photos"
+
+    # Legacy DynamoDB settings (kept for compatibility)
     DYNAMODB_TABLE_NAME: str = "ClubAppTable"
     DYNAMODB_ENDPOINT: Optional[str] = None  # For local DynamoDB
 

@@ -993,8 +993,20 @@ class LocalDBService:
 _db_service: Optional[LocalDBService] = None
 
 
-def get_db_service() -> LocalDBService:
+def get_db_service():
+    """
+    Get the database service instance (singleton pattern).
+    Returns DynamoDBService if USE_DYNAMODB is True, otherwise LocalDBService.
+    """
     global _db_service
     if _db_service is None:
-        _db_service = LocalDBService()
+        # Check if we should use DynamoDB
+        use_dynamodb = getattr(settings, "USE_DYNAMODB", False)
+        if use_dynamodb:
+            from app.services.dynamodb_service import DynamoDBService
+            _db_service = DynamoDBService()
+            print("🗄️  Using DynamoDB for persistent storage")
+        else:
+            _db_service = LocalDBService()
+            print("🗄️  Using SQLite for local storage")
     return _db_service

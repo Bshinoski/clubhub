@@ -53,7 +53,10 @@ app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 @app.on_event("startup")
 async def startup_event():
     print(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} starting up...")
-    print(f"📊 Database: SQLite (local)")
+    if settings.USE_DYNAMODB:
+        print(f"📊 Database: DynamoDB (AWS)")
+    else:
+        print(f"📊 Database: SQLite (local)")
     if settings.USE_LOCAL_STORAGE:
         print(f"📸 Photo Storage: Local ({settings.LOCAL_STORAGE_PATH})")
     else:

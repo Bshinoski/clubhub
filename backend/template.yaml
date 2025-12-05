@@ -15,7 +15,7 @@ Globals:
         USE_LOCAL_STORAGE: true
         # Lambda has /tmp directory for temporary storage (512MB max)
         LOCAL_STORAGE_PATH: /tmp/uploads
-        DATABASE_URL: sqlite:////tmp/clubhub.db
+        USE_DYNAMODB: true
         JWT_ALGORITHM: HS256
         JWT_EXPIRE_MINUTES: 1440
 
@@ -58,9 +58,14 @@ Resources:
           JWT_SECRET_KEY: !Ref JWTSecretKey
           CORS_ORIGINS: !Ref FrontendURL
           FRONTEND_URL: !Ref FrontendURL
-          #LOCAL_STORAGE_URL_PREFIX: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/uploads
           S3_BUCKET_NAME: !Ref S3BucketName
-          #AWS_REGION: !Ref AWS::Region
+          DYNAMODB_USERS_TABLE: !Ref UsersTable
+          DYNAMODB_GROUPS_TABLE: !Ref GroupsTable
+          DYNAMODB_GROUP_MEMBERS_TABLE: !Ref GroupMembersTable
+          DYNAMODB_EVENTS_TABLE: !Ref EventsTable
+          DYNAMODB_PAYMENTS_TABLE: !Ref PaymentsTable
+          DYNAMODB_MESSAGES_TABLE: !Ref MessagesTable
+          DYNAMODB_PHOTOS_TABLE: !Ref PhotosTable
       Events:
         # HTTP API (API Gateway v2) - cheaper and simpler than REST API
         HttpApiEvent:
@@ -72,6 +77,20 @@ Resources:
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3BucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GroupsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GroupMembersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EventsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PaymentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PhotosTable
 
   # HTTP API (API Gateway v2)
   ServerlessHttpApi:
@@ -129,6 +148,172 @@ Resources:
             Principal: "*"
             Action: s3:GetObject
             Resource: !Sub ${PhotosBucket.Arn}/*
+
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  GroupsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-Groups
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: group_id
+          AttributeType: N
+        - AttributeName: invite_code
+          AttributeType: S
+      KeySchema:
+        - AttributeName: group_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: InviteCodeIndex
+          KeySchema:
+            - AttributeName: invite_code
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  GroupMembersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-GroupMembers
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: group_id
+          AttributeType: N
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: group_id
+          KeyType: HASH
+        - AttributeName: user_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: user_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  EventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-Events
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: event_id
+          AttributeType: S
+        - AttributeName: group_id
+          AttributeType: N
+        - AttributeName: event_date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: event_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GroupIndex
+          KeySchema:
+            - AttributeName: group_id
+              KeyType: HASH
+            - AttributeName: event_date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  PaymentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-Payments
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: payment_id
+          AttributeType: S
+        - AttributeName: group_id
+          AttributeType: N
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: payment_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GroupIndex
+          KeySchema:
+            - AttributeName: group_id
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  MessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-Messages
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: message_id
+          AttributeType: S
+        - AttributeName: group_id
+          AttributeType: N
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: message_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GroupIndex
+          KeySchema:
+            - AttributeName: group_id
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  PhotosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClubHub-Photos
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: photo_id
+          AttributeType: S
+        - AttributeName: group_id
+          AttributeType: N
+        - AttributeName: uploaded_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: photo_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GroupIndex
+          KeySchema:
+            - AttributeName: group_id
+              KeyType: HASH
+            - AttributeName: uploaded_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
 Conditions:
   CreateS3Bucket: !Equals [!Ref UseS3Storage, 'true']
