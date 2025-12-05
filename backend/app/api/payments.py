@@ -40,6 +40,12 @@ class BulkChargeRequest(BaseModel):
     due_date: Optional[str] = None
 
 
+class BulkCreditRequest(BaseModel):
+    user_ids: List[str]
+    amount: float
+    description: str
+
+
 class UpdatePaymentStatusRequest(BaseModel):
     status: str  # PENDING, PAID, OVERDUE
 
@@ -48,6 +54,12 @@ class MemberBalanceResponse(BaseModel):
     user_id: str
     user_name: str
     balance: float
+
+
+class PaymentStatisticsResponse(BaseModel):
+    total_money_owed: float  # Sum of all unpaid charges
+    total_money_collected: float  # Sum of all paid charges
+    total_payments_count: int  # Total number of payment records
 
 
 def _build_payment_response(payment: Dict[str, Any], db) -> PaymentResponse:
@@ -172,6 +184,55 @@ async def get_my_balance(user_id: str = Depends(get_current_user_id)):
         balance = db.get_user_balance(group_id, user_id)
 
         return {"balance": balance}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/statistics", response_model=PaymentStatisticsResponse)
+async def get_payment_statistics(user_id: str = Depends(get_current_user_id)):
+    """
+    Get payment statistics for the group (admin only)
+    - total_money_owed: Sum of all unpaid charges (PENDING/OVERDUE)
+    - total_money_collected: Sum of all paid charges
+    - total_payments_count: Total number of payment records
+    """
+    try:
+        db = get_db_service()
+
+        # Check if user is admin
+        membership = db.get_user_membership(user_id)
+        if not membership or membership["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        group_id = membership["group_id"]
+
+        # Get all payments for the group
+        all_payments = db.get_group_payments(group_id)
+
+        total_money_owed = 0.0
+        total_money_collected = 0.0
+        total_payments_count = len(all_payments)
+
+        for payment in all_payments:
+            amount = float(payment["amount"])
+            payment_type = payment["payment_type"]
+            status = payment["status"]
+
+            # Only count CHARGE payments for owed/collected calculations
+            if payment_type == "CHARGE":
+                if status in ["PENDING", "OVERDUE"]:
+                    total_money_owed += amount
+                elif status == "PAID":
+                    total_money_collected += amount
+
+        return PaymentStatisticsResponse(
+            total_money_owed=total_money_owed,
+            total_money_collected=total_money_collected,
+            total_payments_count=total_payments_count,
+        )
 
     except HTTPException:
         raise
@@ -309,6 +370,65 @@ async def create_bulk_charge(
                 "payment_type": "CHARGE",
                 "status": "PENDING",
                 "due_date": request.due_date,
+                "created_by": user_id,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+
+            db.create_payment(payment_data)
+
+            # Get created payment
+            payment = db.get_payment_by_id(payment_id)
+            created_payments.append(_build_payment_response(payment, db))
+
+        return created_payments
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/bulk-credit", response_model=List[PaymentResponse])
+async def create_bulk_credit(
+    request: BulkCreditRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Create credits for multiple members (admin only)
+    """
+    try:
+        db = get_db_service()
+
+        # Check if user is admin
+        membership = db.get_user_membership(user_id)
+        if not membership or membership["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        group_id = membership["group_id"]
+
+        if not request.user_ids:
+            raise HTTPException(status_code=400, detail="No users selected")
+
+        created_payments: List[PaymentResponse] = []
+
+        for target_user_id in request.user_ids:
+            # Verify user is in group
+            target_membership = db.get_user_membership(target_user_id)
+            if not target_membership or target_membership["group_id"] != group_id:
+                continue  # Skip users not in group
+
+            # Create payment
+            payment_id = str(uuid.uuid4())
+            payment_data = {
+                "payment_id": payment_id,
+                "group_id": group_id,
+                "user_id": target_user_id,
+                "amount": request.amount,
+                "description": request.description,
+                "payment_type": "CREDIT",
+                "status": "PAID",  # Credits are automatically marked as paid
+                "due_date": None,
+                "paid_date": datetime.utcnow().date().isoformat(),
                 "created_by": user_id,
                 "created_at": datetime.utcnow().isoformat(),
             }

@@ -711,6 +711,36 @@ class LocalDBService:
 
         return self.get_payment(payment_id) or {}
 
+    def delete_payment(self, payment_id: str) -> None:
+        """
+        Delete a payment and reverse its balance adjustment.
+
+        When deleting a payment, we reverse the balance change:
+        - CHARGE payments decreased balance, so we increase it back
+        - CREDIT payments increased balance, so we decrease it back
+        """
+        # First get the payment details so we can reverse the balance
+        payment = self.get_payment(payment_id)
+        if not payment:
+            return
+
+        user_id = payment["user_id"]
+        group_id = payment["group_id"]
+        amount = float(payment["amount"])
+        payment_type = payment["payment_type"]
+
+        # Delete the payment
+        with self._conn() as conn:
+            conn.execute("DELETE FROM payments WHERE payment_id = ?", (payment_id,))
+
+        # Reverse the balance adjustment
+        if payment_type == "CHARGE":
+            # CHARGE decreased balance, so add it back
+            self.update_member_balance(user_id, group_id, amount)
+        elif payment_type == "CREDIT":
+            # CREDIT increased balance, so subtract it back
+            self.update_member_balance(user_id, group_id, -amount)
+
     # ============= MESSAGE OPERATIONS =============
 
     def create_message(self, group_id: int, user_id: str, user_name: str, content: str) -> Dict[str, Any]:

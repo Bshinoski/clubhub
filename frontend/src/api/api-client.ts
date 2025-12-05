@@ -269,10 +269,22 @@ export interface BulkChargeRequest {
     due_date?: string;
 }
 
+export interface BulkCreditRequest {
+    user_ids: string[];
+    amount: number;
+    description: string;
+}
+
 export interface MemberBalance {
     user_id: string;
     user_name: string;
     balance: number;
+}
+
+export interface PaymentStatistics {
+    total_money_owed: number;
+    total_money_collected: number;
+    total_payments_count: number;
 }
 
 export const paymentsAPI = {
@@ -313,6 +325,18 @@ export const paymentsAPI = {
             method: 'POST',
             headers: getAuthHeader(),
             body: JSON.stringify(data),
+        }).then(handleResponse),
+
+    bulkCredit: (data: BulkCreditRequest): Promise<Payment[]> =>
+        fetch(`${API_BASE_URL}/api/payments/bulk-credit`, {
+            method: 'POST',
+            headers: getAuthHeader(),
+            body: JSON.stringify(data),
+        }).then(handleResponse),
+
+    getStatistics: (): Promise<PaymentStatistics> =>
+        fetch(`${API_BASE_URL}/api/payments/statistics`, {
+            headers: getAuthHeader(),
         }).then(handleResponse),
 
     updateStatus: (paymentId: string, status: 'PENDING' | 'PAID' | 'OVERDUE'): Promise<Payment> =>
