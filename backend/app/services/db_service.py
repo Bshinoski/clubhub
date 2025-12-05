@@ -637,12 +637,14 @@ class LocalDBService:
             )
 
         # Adjust member balance based on payment_type
-        # CHARGE  -> member owes more  -> balance goes DOWN (subtract amount)
-        # CREDIT  -> member owes less  -> balance goes UP   (add amount)
+        # Positive balance = member owes money
+        # Negative balance = member has credit
+        # CHARGE  -> member owes more  -> balance goes UP (add amount)
+        # CREDIT  -> member owes less  -> balance goes DOWN (subtract amount)
         if payment_type == "CHARGE":
-            self.update_member_balance(user_id, group_id, -amount)
-        elif payment_type == "CREDIT":
             self.update_member_balance(user_id, group_id, amount)
+        elif payment_type == "CREDIT":
+            self.update_member_balance(user_id, group_id, -amount)
 
     def get_payment(self, payment_id: str) -> Optional[Dict[str, Any]]:
         with self._conn() as conn:
@@ -722,8 +724,8 @@ class LocalDBService:
         Delete a payment and reverse its balance adjustment.
 
         When deleting a payment, we reverse the balance change:
-        - CHARGE payments decreased balance, so we increase it back
-        - CREDIT payments increased balance, so we decrease it back
+        - CHARGE payments increased balance, so we decrease it back
+        - CREDIT payments decreased balance, so we increase it back
         """
         # First get the payment details so we can reverse the balance
         payment = self.get_payment(payment_id)
@@ -741,11 +743,11 @@ class LocalDBService:
 
         # Reverse the balance adjustment
         if payment_type == "CHARGE":
-            # CHARGE decreased balance, so add it back
-            self.update_member_balance(user_id, group_id, amount)
-        elif payment_type == "CREDIT":
-            # CREDIT increased balance, so subtract it back
+            # CHARGE increased balance, so subtract it back
             self.update_member_balance(user_id, group_id, -amount)
+        elif payment_type == "CREDIT":
+            # CREDIT decreased balance, so add it back
+            self.update_member_balance(user_id, group_id, amount)
 
     # ============= MESSAGE OPERATIONS =============
 

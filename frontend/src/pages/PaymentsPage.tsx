@@ -226,7 +226,7 @@ const PaymentsPage: React.FC = () => {
     });
 
     // Get admin's own payments
-    const myPayments = isAdmin ? payments.filter(p => p.user_id === user?.userId) : payments;
+    const myPayments = isAdmin ? payments.filter(p => p.user_id === user?.id) : payments;
 
     if (loading) {
         return (
