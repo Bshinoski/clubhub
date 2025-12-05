@@ -398,6 +398,22 @@ class LocalDBService:
             row = cur.fetchone()
             return int(row["cnt"]) if row else 0
 
+    def get_group_member_count(self, group_id: int) -> int:
+        """
+        Get total number of members in a group.
+        """
+        with self._conn() as conn:
+            cur = conn.execute(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM group_members
+                WHERE group_id = ?
+                """,
+                (group_id,),
+            )
+            row = cur.fetchone()
+            return int(row["cnt"]) if row else 0
+
     def update_member_role(self, group_id: int, user_id: str, role: str) -> Dict[str, Any]:
         """
         Signature matches members.py:

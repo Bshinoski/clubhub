@@ -2,8 +2,8 @@
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api, { Event, Payment, MemberBalance, Member, Message } from '../api/api-client';
-import { Calendar, Clock, DollarSign, Camera, Users, MapPin, AlertCircle, MessageSquare, UserCheck } from 'lucide-react';
+import api, { Event, Payment, Member } from '../api/api-client';
+import { Calendar, Clock, DollarSign, Camera, Users, MapPin, AlertCircle, UserCheck } from 'lucide-react';
 
 const MemberDashboard: React.FC = () => {
     const { user } = useAuth();
@@ -17,7 +17,6 @@ const MemberDashboard: React.FC = () => {
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
     const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
     const [teamMembers, setTeamMembers] = useState<Member[]>([]);
-    const [recentMessages, setRecentMessages] = useState<Message[]>([]);
     const [nextEvent, setNextEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -30,14 +29,13 @@ const MemberDashboard: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            // Fetch all data in parallel
-            const [eventsData, paymentsData, myBalanceData, photoCountData, membersData, messagesData] = await Promise.all([
+            // Fetch all data in parallel - using same pattern as PaymentsPage
+            const [eventsData, paymentsData, myBalanceData, photoCountData, membersData] = await Promise.all([
                 api.events.getUpcoming(3),
                 api.payments.getAll(), // Will need to filter for current user
                 api.payments.getMyBalance(),
                 api.photos.getCount(),
                 api.members.getAll(),
-                api.chat.getMessages({ limit: 5 }),
             ]);
 
             // Filter payments for current user
@@ -57,7 +55,6 @@ const MemberDashboard: React.FC = () => {
             setUpcomingEvents(eventsData);
             setRecentPayments(recentUserPayments);
             setTeamMembers(membersData);
-            setRecentMessages(messagesData);
             setNextEvent(eventsData.length > 0 ? eventsData[0] : null);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
@@ -400,45 +397,6 @@ const MemberDashboard: React.FC = () => {
                             </div>
                         )}
                     </div>
-                </div>
-
-                {/* Recent Team Chat */}
-                <div className="card">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-gray-900">Recent Team Chat</h2>
-                        <Link to="/chat" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                            View all
-                        </Link>
-                    </div>
-
-                    {recentMessages.length === 0 ? (
-                        <div className="text-center py-8">
-                            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                            <p className="text-gray-600 text-sm">No recent messages</p>
-                            <Link to="/chat" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
-                                Start a conversation
-                            </Link>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {recentMessages.map((message) => (
-                                <div key={message.message_id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <div className="flex items-start justify-between mb-1">
-                                        <span className="font-semibold text-gray-900">{message.user_name}</span>
-                                        <span className="text-xs text-gray-500">
-                                            {new Date(message.created_at).toLocaleString('en-US', {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: 'numeric',
-                                                minute: '2-digit',
-                                            })}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-gray-700">{message.content}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
 
                 {/* Quick Links */}
