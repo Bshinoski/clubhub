@@ -150,7 +150,7 @@ async def get_member_balances(user_id: str = Depends(get_current_user_id)):
                 continue
 
             # Calculate balance
-            balance = db.get_user_balance(group_id, member["user_id"])
+            balance = db.get_user_balance(member["user_id"], group_id)
 
             balances.append(
                 MemberBalanceResponse(
@@ -181,7 +181,7 @@ async def get_my_balance(user_id: str = Depends(get_current_user_id)):
             raise HTTPException(status_code=404, detail="User not in any group")
 
         group_id = membership["group_id"]
-        balance = db.get_user_balance(group_id, user_id)
+        balance = db.get_user_balance(user_id, group_id)
 
         return {"balance": balance}
 
