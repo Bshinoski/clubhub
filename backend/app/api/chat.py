@@ -76,15 +76,11 @@ async def get_messages(
         # Get messages
         messages = db.get_group_messages(group_id, limit=limit, before=before)
         
-        # Add user names
+        # Convert to response models
         message_list = []
         for message in messages:
-            user = db.get_user_by_id(message['user_id'])
-            message_list.append(MessageResponse(
-                **message,
-                user_name=user.get('display_name', user['email']) if user else 'Unknown'
-            ))
-        
+            message_list.append(MessageResponse(**message))
+
         return message_list
         
     except HTTPException:
@@ -125,15 +121,11 @@ async def send_message(
         }
         
         db.create_message(message_data)
-        
-        # Get created message with user info
+
+        # Get created message (user_name is already included by db service)
         message = db.get_message_by_id(message_id)
-        user = db.get_user_by_id(user_id)
-        
-        response = MessageResponse(
-            **message,
-            user_name=user.get('display_name', user['email']) if user else 'Unknown'
-        )
+
+        response = MessageResponse(**message)
         
         # Broadcast to WebSocket clients
         await manager.broadcast_to_group(group_id, {
@@ -252,19 +244,14 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                                 'content': content,
                                 'created_at': datetime.utcnow().isoformat()
                             }
-                            
-                            db.create_message(new_message)
-                            
-                            # Get user info
-                            user = db.get_user_by_id(user_id)
-                            
+
+                            # Create message (returns message with user_name included)
+                            created_message = db.create_message(new_message)
+
                             # Broadcast to all group members
                             await manager.broadcast_to_group(group_id, {
                                 "type": "new_message",
-                                "message": {
-                                    **new_message,
-                                    "user_name": user.get('display_name', user['email']) if user else 'Unknown'
-                                }
+                                "message": created_message
                             })
                     
                     elif message_data.get('type') == 'typing':
