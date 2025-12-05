@@ -1,55 +1,65 @@
-from datetime import datetime, timedelta
-from typing import Optional
+# app/utils/security.py
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from datetime import datetime, timedelta
+from typing import Dict, Any
+
+import bcrypt       # direct bcrypt usage
+import jwt
 
 from app.config import settings
 
-# Password hashing config
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+MAX_BCRYPT_LENGTH = 72
+
+
+def _truncate_password(password: str) -> bytes:
+    """
+    bcrypt only uses the first 72 bytes. Truncate and return bytes.
+    """
+    if not isinstance(password, str):
+        password = str(password)
+    return password[:MAX_BCRYPT_LENGTH].encode("utf-8")
 
 
 def hash_password(password: str) -> str:
-    """Hash a plain-text password."""
-    return pwd_context.hash(password)
+    """
+    Hash a plaintext password using bcrypt.
+    Returns a UTF-8 string you can store in the DB.
+    """
+    pw_bytes = _truncate_password(password)
+    hashed = bcrypt.hashpw(pw_bytes, bcrypt.gensalt())
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain-text password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """
+    Verify a plaintext password against a bcrypt hash.
+    """
+    pw_bytes = _truncate_password(plain_password)
+    try:
+        return bcrypt.checkpw(pw_bytes, hashed_password.encode("utf-8"))
+    except ValueError:
+        # If the stored hash is malformed, just fail verification
+        return False
 
 
-def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    data: Dict[str, Any],
+    expires_delta: timedelta | None = None,
+) -> str:
     """
-    Create a signed JWT access token for a given user_id.
+    Create a JWT access token.
     """
+    to_encode = data.copy()
+
     if expires_delta is None:
-        expires_delta = timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+        expires_delta = timedelta(hours=12)
 
     expire = datetime.utcnow() + expires_delta
-
-    payload = {
-        "user_id": user_id,
-        "exp": expire,
-    }
+    to_encode.update({"exp": expire})
 
     encoded_jwt = jwt.encode(
-        payload,
+        to_encode,
         settings.JWT_SECRET_KEY,
         algorithm=settings.JWT_ALGORITHM,
     )
     return encoded_jwt
-
-
-def decode_token(token: str) -> Optional[dict]:
-    """Decode a JWT token and return its payload or None if invalid/expired."""
-    try:
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-        return payload
-    except JWTError:
-        return None

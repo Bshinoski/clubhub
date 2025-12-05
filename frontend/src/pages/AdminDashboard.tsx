@@ -1,124 +1,283 @@
-﻿import React from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
-import { Users, Calendar, DollarSign, TrendingUp, Plus } from 'lucide-react';
-import { Button } from '../components/common/Button';
+import { Link } from 'react-router-dom';
+import api, { Member, Event, MemberBalance } from '../api/api-client';
+import { Users, Calendar, DollarSign, Camera, TrendingUp, AlertCircle } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
     const { user } = useAuth();
 
-    const stats = [
-        { label: 'Total Members', value: '24', icon: <Users className="h-6 w-6" />, color: 'bg-blue-500' },
-        { label: 'Upcoming Events', value: '5', icon: <Calendar className="h-6 w-6" />, color: 'bg-green-500' },
-        { label: 'Pending Payments', value: '$1,250', icon: <DollarSign className="h-6 w-6" />, color: 'bg-yellow-500' },
-        { label: 'Team Activity', value: '89%', icon: <TrendingUp className="h-6 w-6" />, color: 'bg-purple-500' },
-    ];
+    const [stats, setStats] = useState({
+        totalMembers: 0,
+        adminCount: 0,
+        upcomingEvents: 0,
+        totalOwed: 0,
+        photoCount: 0,
+    });
+    const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+    const [topBalances, setTopBalances] = useState<MemberBalance[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    const upcomingEvents = [
-        { title: 'Practice Session', date: '2025-12-15', time: '4:00 PM', location: 'Field A' },
-        { title: 'Team Meeting', date: '2025-12-17', time: '6:00 PM', location: 'Clubhouse' },
-        { title: 'Home Game vs Eagles', date: '2025-12-20', time: '2:00 PM', location: 'Stadium' },
-    ];
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
 
-    const recentActivity = [
-        { action: 'New member joined', user: 'Sarah Johnson', time: '2 hours ago' },
-        { action: 'Payment received', user: 'Mike Davis', time: '5 hours ago' },
-        { action: 'Event created', user: 'You', time: '1 day ago' },
-        { action: 'Photo uploaded', user: 'Coach Smith', time: '2 days ago' },
-    ];
+    const fetchDashboardData = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            // Fetch all data in parallel
+            const [membersData, eventsData, balancesData, photoCountData] = await Promise.all([
+                api.members.getAll(),
+                api.events.getUpcoming({ limit: 3 }),
+                api.payments.getBalances(),
+                api.photos.getCount(),
+            ]);
+
+            // Calculate stats
+            const adminCount = membersData.filter(m => m.role === 'admin').length;
+            const totalOwed = balancesData.reduce((sum, b) => sum + b.balance, 0);
+            const topOwing = balancesData
+                .filter(b => b.balance > 0)
+                .sort((a, b) => b.balance - a.balance)
+                .slice(0, 5);
+
+            setStats({
+                totalMembers: membersData.length,
+                adminCount,
+                upcomingEvents: eventsData.length,
+                totalOwed,
+                photoCount: photoCountData.count,
+            });
+
+            setUpcomingEvents(eventsData);
+            setTopBalances(topOwing);
+        } catch (err: any) {
+            setError(err.message || 'Failed to load dashboard data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr + 'T00:00:00');
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+
+    const formatTime = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+    };
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Loading dashboard...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                        <p className="text-gray-600 mt-1">Welcome back, {user?.name}!</p>
-                    </div>
-                    <div className="flex space-x-3">
-                        <Button variant="secondary" className="flex items-center space-x-2">
-                            <Plus className="h-4 w-4" />
-                            <span>New Event</span>
-                        </Button>
-                        <Button className="flex items-center space-x-2">
-                            <Plus className="h-4 w-4" />
-                            <span>Add Member</span>
-                        </Button>
-                    </div>
+                {/* Welcome Header */}
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
+                    <p className="text-gray-600 mt-1">Here's what's happening with your team</p>
                 </div>
 
+                {error && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                        <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                )}
+
+                {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {stats.map((stat, index) => (
-                        <div key={index} className="card">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-600">{stat.label}</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                                </div>
-                                <div className={`${stat.color} text-white p-3 rounded-lg`}>
-                                    {stat.icon}
-                                </div>
+                    <Link to="/roster" className="card hover:shadow-xl transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Total Members</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalMembers}</p>
+                                <p className="text-xs text-gray-500 mt-1">{stats.adminCount} admins</p>
+                            </div>
+                            <div className="p-3 bg-primary-100 rounded-lg">
+                                <Users className="h-8 w-8 text-primary-600" />
                             </div>
                         </div>
-                    ))}
+                    </Link>
+
+                    <Link to="/schedule" className="card hover:shadow-xl transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Upcoming Events</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.upcomingEvents}</p>
+                                <p className="text-xs text-gray-500 mt-1">Next 3 events</p>
+                            </div>
+                            <div className="p-3 bg-blue-100 rounded-lg">
+                                <Calendar className="h-8 w-8 text-blue-600" />
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link to="/payments" className="card hover:shadow-xl transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Total Owed</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">
+                                    ${stats.totalOwed.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Outstanding balance</p>
+                            </div>
+                            <div className="p-3 bg-green-100 rounded-lg">
+                                <DollarSign className="h-8 w-8 text-green-600" />
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link to="/gallery" className="card hover:shadow-xl transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Team Photos</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.photoCount}</p>
+                                <p className="text-xs text-gray-500 mt-1">In gallery</p>
+                            </div>
+                            <div className="p-3 bg-purple-100 rounded-lg">
+                                <Camera className="h-8 w-8 text-purple-600" />
+                            </div>
+                        </div>
+                    </Link>
                 </div>
 
-                <div className="grid lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Upcoming Events */}
                     <div className="card">
-                        <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold text-gray-900">Upcoming Events</h2>
-                            <Button variant="secondary" className="text-sm">View All</Button>
+                            <Link to="/schedule" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                                View all
+                            </Link>
                         </div>
-                        <div className="space-y-3">
-                            {upcomingEvents.map((event, index) => (
-                                <div key={index} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <h3 className="font-semibold text-gray-900">{event.title}</h3>
-                                    <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
-                                        <span>📅 {event.date}</span>
-                                        <span>🕐 {event.time}</span>
-                                        <span>📍 {event.location}</span>
+
+                        {upcomingEvents.length === 0 ? (
+                            <div className="text-center py-8">
+                                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                <p className="text-gray-600 text-sm">No upcoming events</p>
+                                <Link to="/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                                    Create an event
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {upcomingEvents.map((event) => (
+                                    <div key={event.event_id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-gray-900">{event.title}</h3>
+                                                <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                                    <span className="flex items-center">
+                                                        <Calendar className="h-3 w-3 mr-1" />
+                                                        {formatDate(event.date)}
+                                                    </span>
+                                                    <span className="flex items-center">
+                                                        <Clock className="h-3 w-3 mr-1" />
+                                                        {formatTime(event.time)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
+                    {/* Outstanding Balances */}
                     <div className="card">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
-                            <Button variant="secondary" className="text-sm">View All</Button>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Top Outstanding Balances</h2>
+                            <Link to="/payments" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                                View all
+                            </Link>
                         </div>
-                        <div className="space-y-3">
-                            {recentActivity.map((activity, index) => (
-                                <div key={index} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                                    <div className="w-2 h-2 mt-2 bg-primary-600 rounded-full"></div>
-                                    <div className="flex-1">
-                                        <p className="text-sm text-gray-900">
-                                            <span className="font-medium">{activity.user}</span> {activity.action}
-                                        </p>
-                                        <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+
+                        {topBalances.length === 0 ? (
+                            <div className="text-center py-8">
+                                <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                <p className="text-gray-600 text-sm">No outstanding balances</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {topBalances.map((balance, index) => (
+                                    <div key={balance.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <span className="text-orange-700 font-semibold text-sm">
+                                                    {index + 1}
+                                                </span>
+                                            </div>
+                                            <span className="font-medium text-gray-900">{balance.user_name}</span>
+                                        </div>
+                                        <span className="text-orange-600 font-bold">
+                                            ${balance.balance.toFixed(2)}
+                                        </span>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
+                {/* Quick Actions */}
                 <div className="card">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-                    <div className="grid md:grid-cols-3 gap-4">
-                        <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-center">
-                            <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <p className="font-medium text-gray-700">Schedule Event</p>
-                        </button>
-                        <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-center">
-                            <DollarSign className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <p className="font-medium text-gray-700">Send Payment Request</p>
-                        </button>
-                        <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-center">
-                            <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                            <p className="font-medium text-gray-700">Manage Roster</p>
-                        </button>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Link
+                            to="/schedule"
+                            className="p-4 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors text-center"
+                        >
+                            <Calendar className="h-8 w-8 text-primary-600 mx-auto mb-2" />
+                            <p className="text-sm font-medium text-gray-900">Create Event</p>
+                        </Link>
+
+                        <Link
+                            to="/payments"
+                            className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-center"
+                        >
+                            <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                            <p className="text-sm font-medium text-gray-900">Add Payment</p>
+                        </Link>
+
+                        <Link
+                            to="/roster"
+                            className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-center"
+                        >
+                            <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                            <p className="text-sm font-medium text-gray-900">Manage Roster</p>
+                        </Link>
+
+                        <Link
+                            to="/gallery"
+                            className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-center"
+                        >
+                            <Camera className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                            <p className="text-sm font-medium text-gray-900">Upload Photo</p>
+                        </Link>
                     </div>
                 </div>
             </div>

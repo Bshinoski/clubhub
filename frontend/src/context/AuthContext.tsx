@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import api from '../api/api-client';
 
 interface User {
     id: string;
     email: string;
     name: string;
     phone?: string;
-    cognitoId: string;
-    createdAt: string;
     role?: 'admin' | 'member';
+    groupId?: number;
 }
 
 interface AuthContextType {
@@ -15,7 +15,13 @@ interface AuthContextType {
     token: string | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    signup: (email: string, password: string, name: string, phone?: string) => Promise<void>;
+    signup: (data: {
+        email: string;
+        password: string;
+        name: string;
+        groupName?: string;
+        inviteCode?: string;
+    }) => Promise<{ groupCode?: string }>;
     logout: () => void;
 }
 
@@ -41,24 +47,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const login = async (email: string, password: string) => {
         setLoading(true);
         try {
-            // TODO: Replace with actual API call
-            // const response = await axios.post('/api/auth/login', { email, password });
-
-            // Mock login - determine role based on email for demo
-            const mockToken = 'mock-jwt-token-' + Date.now();
-            const mockUser: User = {
-                id: '1',
+            // 👇 backend now expects { email, password }
+            const response = await api.auth.login({
                 email,
-                name: email.split('@')[0],
-                cognitoId: 'mock-cognito-id',
-                createdAt: new Date().toISOString(),
-                role: email.includes('admin') ? 'admin' : 'member',
+                password,
+            });
+
+            const userData: User = {
+                id: response.userId,
+                email,
+                name: response.displayName || email.split('@')[0],
+                role: response.role,
+                groupId: response.groupId,
             };
 
-            setToken(mockToken);
-            setUser(mockUser);
-            localStorage.setItem('authToken', mockToken);
-            localStorage.setItem('user', JSON.stringify(mockUser));
+            setToken(response.token);
+            setUser(userData);
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {
             console.error('Login failed:', error);
             throw error;
@@ -67,28 +73,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const signup = async (email: string, password: string, name: string, phone?: string) => {
+    const signup = async (data: {
+        email: string;
+        password: string;
+        name: string;
+        groupName?: string;
+        inviteCode?: string;
+    }) => {
         setLoading(true);
         try {
-            // TODO: Replace with actual API call
-            // const response = await axios.post('/api/auth/signup', { email, password, name, phone });
+            // 👇 backend now expects { email, password, name, groupName?, inviteCode? }
+            const response = await api.auth.signup({
+                email: data.email,
+                password: data.password,
+                name: data.name,
+                ...(data.groupName ? { groupName: data.groupName } : {}),
+                ...(data.inviteCode ? { inviteCode: data.inviteCode } : {}),
+            });
 
-            // Mock signup
-            const mockToken = 'mock-jwt-token-' + Date.now();
-            const mockUser: User = {
-                id: '1',
-                email,
-                name,
-                phone,
-                cognitoId: 'mock-cognito-id',
-                createdAt: new Date().toISOString(),
-                role: 'member', // Default to member
+            const userData: User = {
+                id: response.userId,
+                email: data.email,
+                name: data.name,
+                role: response.role,
+                groupId: response.groupId,
             };
 
-            setToken(mockToken);
-            setUser(mockUser);
-            localStorage.setItem('authToken', mockToken);
-            localStorage.setItem('user', JSON.stringify(mockUser));
+            setToken(response.token);
+            setUser(userData);
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('user', JSON.stringify(userData));
+
+            return { groupCode: response.groupCode };
         } catch (error) {
             console.error('Signup failed:', error);
             throw error;
