@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
     # App
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # DynamoDB
     DYNAMODB_TABLE_NAME: str = "ClubAppTable"
-    DYNAMODB_ENDPOINT: Optional[str] = None  # For local testing
+    DYNAMODB_ENDPOINT: Optional[str] = None  # For local DynamoDB
     
     # Cognito
     COGNITO_USER_POOL_ID: str
@@ -24,23 +24,19 @@ class Settings(BaseSettings):
     # S3
     S3_BUCKET_NAME: str = "clubapp-photos"
     
-    # SES (Email)
-    SES_FROM_EMAIL: str = "noreply@clubapp.com"
-    SES_REGION: str = "us-east-1"
-    
     # JWT
-    JWT_SECRET_KEY: str = "your-secret-key-change-this"
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    JWT_EXPIRE_MINUTES: int = 1440  # 24 hours
     
     # CORS
-    CORS_ORIGINS: list = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://yourdomain.com"
-    ]
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     
-    # Frontend URL (for email links)
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+    
+    # Frontend URL
     FRONTEND_URL: str = "http://localhost:5173"
     
     class Config:
