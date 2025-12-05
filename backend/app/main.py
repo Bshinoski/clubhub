@@ -5,7 +5,7 @@ from pathlib import Path
 from app.config import settings
 
 # Import API routers
-from app.api import auth, groups, members, events, payments, photos
+from app.api import auth, groups, members, events, payments, photos, chat
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -47,6 +47,7 @@ app.include_router(members.router, prefix="/api/members", tags=["Members"])
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(photos.router, prefix="/api/photos", tags=["Photos"])
+app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 
 # Startup event
 @app.on_event("startup")
