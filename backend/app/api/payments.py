@@ -489,12 +489,31 @@ async def update_payment_status(
         if request.status not in valid_statuses:
             raise HTTPException(status_code=400, detail="Invalid status")
 
+        # Get old status to determine balance adjustment
+        old_status = payment["status"]
+        new_status = request.status
+        payment_type = payment["payment_type"]
+        amount = float(payment["amount"])
+        payment_user_id = payment["user_id"]
+
         # Update status
         update_data = {"status": request.status}
         if request.status == "PAID":
             update_data["paid_date"] = datetime.utcnow().date().isoformat()
+        elif request.status == "PENDING" and payment.get("paid_date"):
+            update_data["paid_date"] = None
 
         db.update_payment(payment_id, update_data)
+
+        # Adjust balance if status changed for CHARGE payments
+        # CHARGE payments affect balance when status changes between PENDING and PAID
+        if payment_type == "CHARGE" and old_status != new_status:
+            if old_status == "PENDING" and new_status == "PAID":
+                # Payment was pending (already in balance), now paid (remove from balance)
+                db.update_member_balance(payment_user_id, group_id, -amount)
+            elif old_status == "PAID" and new_status == "PENDING":
+                # Payment was paid (not in balance), now pending (add back to balance)
+                db.update_member_balance(payment_user_id, group_id, amount)
 
         # Return updated payment
         payment = db.get_payment_by_id(payment_id)

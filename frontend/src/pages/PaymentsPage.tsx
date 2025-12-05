@@ -21,6 +21,9 @@ const PaymentsPage: React.FC = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showBulkChargeModal, setShowBulkChargeModal] = useState(false);
     const [showBulkCreditModal, setShowBulkCreditModal] = useState(false);
+    const [showPayNowModal, setShowPayNowModal] = useState(false);
+    const [paymentToPay, setPaymentToPay] = useState<Payment | null>(null);
+    const [cardNumber, setCardNumber] = useState('');
 
     const [formData, setFormData] = useState<CreatePaymentRequest>({
         user_id: '',
@@ -220,6 +223,35 @@ const PaymentsPage: React.FC = () => {
         }
     };
 
+    const handlePayNowClick = (payment: Payment) => {
+        setPaymentToPay(payment);
+        setCardNumber('');
+        setShowPayNowModal(true);
+    };
+
+    const handlePayNowSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!paymentToPay) return;
+
+        // Validate fake card number (just needs to be 16 digits)
+        if (cardNumber.replace(/\s/g, '').length !== 16 || !/^\d+$/.test(cardNumber.replace(/\s/g, ''))) {
+            alert('Please enter a valid 16-digit card number');
+            return;
+        }
+
+        try {
+            await api.payments.updateStatus(paymentToPay.payment_id, 'PAID');
+            await fetchData();
+            setShowPayNowModal(false);
+            setPaymentToPay(null);
+            setCardNumber('');
+            alert('Payment successful!');
+        } catch (err: any) {
+            alert(err.message || 'Failed to process payment');
+        }
+    };
+
     const filteredPayments = payments.filter((p) => {
         if (filterStatus === 'all') return true;
         return p.status === filterStatus;
@@ -332,6 +364,16 @@ const PaymentsPage: React.FC = () => {
                                     }`}>
                                     {payment.payment_type === 'CREDIT' ? '+' : ''}${payment.amount.toFixed(2)}
                                 </p>
+
+                                {/* Pay Now button for unpaid charges */}
+                                {payment.status === 'PENDING' && payment.payment_type === 'CHARGE' && payment.user_id === user?.id && (
+                                    <button
+                                        onClick={() => handlePayNowClick(payment)}
+                                        className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                    >
+                                        Pay Now
+                                    </button>
+                                )}
 
                                 {isAdmin && (
                                     <div className="flex space-x-2">
@@ -868,6 +910,100 @@ const PaymentsPage: React.FC = () => {
                                     </Button>
                                     <Button type="submit" fullWidth>
                                         Credit Members
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Pay Now Modal */}
+                {showPayNowModal && paymentToPay && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl p-6 max-w-md w-full">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900">Pay Now</h2>
+                                <button
+                                    onClick={() => setShowPayNowModal(false)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
+
+                            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm text-gray-600">Amount to Pay:</span>
+                                    <span className="text-2xl font-bold text-gray-900">${paymentToPay.amount.toFixed(2)}</span>
+                                </div>
+                                <p className="text-sm text-gray-600">{paymentToPay.description}</p>
+                            </div>
+
+                            <form onSubmit={handlePayNowSubmit}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Card Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={cardNumber}
+                                        onChange={(e) => {
+                                            // Auto-format with spaces every 4 digits
+                                            const value = e.target.value.replace(/\s/g, '');
+                                            if (/^\d*$/.test(value) && value.length <= 16) {
+                                                const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+                                                setCardNumber(formatted);
+                                            }
+                                        }}
+                                        placeholder="1234 5678 9012 3456"
+                                        maxLength={19}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-lg tracking-wider"
+                                        required
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        This is a test environment. Enter any 16-digit number.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Expiry Date
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="MM/YY"
+                                            defaultValue="12/25"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            CVV
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="123"
+                                            defaultValue="123"
+                                            maxLength={3}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-3">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        fullWidth
+                                        onClick={() => setShowPayNowModal(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" fullWidth>
+                                        Pay ${paymentToPay.amount.toFixed(2)}
                                     </Button>
                                 </div>
                             </form>
