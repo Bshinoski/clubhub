@@ -1,4 +1,4 @@
-import sqlite3
+﻿import sqlite3
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -407,6 +407,24 @@ class LocalDBService:
                 (amount, user_id, group_id),
             )
 
+    def get_user_balance(self, user_id: str, group_id: int) -> float:
+        """
+        Return the current balance for a user in a given group.
+        """
+        with self._conn() as conn:
+            cur = conn.execute(
+                """
+                SELECT balance
+                FROM group_members
+                WHERE user_id = ? AND group_id = ?
+                """,
+                (user_id, group_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return 0.0
+            return float(row["balance"])
+
     def remove_member(self, user_id: str, group_id: int) -> None:
         with self._conn() as conn:
             conn.execute(
@@ -423,10 +441,22 @@ class LocalDBService:
 
     # ============= EVENT OPERATIONS =============
 
-    def create_event(self, group_id: int, user_id: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        event_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+    def create_event(self, event_data: Dict[str, Any]) -> None:
+        """
+        Insert a new event.
 
+        Expected keys in event_data (as built in api/events.py):
+        - event_id
+        - group_id
+        - title
+        - description (optional)
+        - event_date (YYYY-MM-DD)
+        - event_time (HH:MM)
+        - location (optional)
+        - event_type
+        - created_by
+        - created_at
+        """
         with self._conn() as conn:
             conn.execute(
                 """
@@ -436,38 +466,74 @@ class LocalDBService:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    event_id,
-                    group_id,
+                    event_data["event_id"],
+                    event_data["group_id"],
                     event_data["title"],
                     event_data.get("description"),
                     event_data["event_date"],
                     event_data["event_time"],
                     event_data.get("location"),
                     event_data["event_type"],
-                    user_id,
-                    now,
+                    event_data["created_by"],
+                    event_data["created_at"],
                 ),
             )
 
-        return self.get_event(event_id)
-
-    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+    def get_event_by_id(self, event_id: str) -> Optional[Dict[str, Any]]:
         with self._conn() as conn:
             cur = conn.execute("SELECT * FROM events WHERE event_id = ?", (event_id,))
             row = cur.fetchone()
             return dict(row) if row else None
 
-    def get_group_events(self, group_id: int) -> List[Dict[str, Any]]:
+    # Backwards-compatible alias if anything still calls get_event
+    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        return self.get_event_by_id(event_id)
+
+    def get_group_events(
+        self,
+        group_id: int,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        event_type: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return events for a group, optionally filtered by date range, type, and limit.
+
+        Dates are stored as 'YYYY-MM-DD' text, so string comparisons work for
+        >= / <= and ordering.
+        """
+        query = """
+            SELECT * FROM events
+            WHERE group_id = ?
+        """
+        params: List[Any] = [group_id]
+
+        if start_date:
+            query += " AND event_date >= ?"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND event_date <= ?"
+            params.append(end_date)
+
+        if event_type:
+            query += " AND event_type = ?"
+            params.append(event_type)
+
+        query += " ORDER BY event_date, event_time"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
         with self._conn() as conn:
-            cur = conn.execute(
-                "SELECT * FROM events WHERE group_id = ? ORDER BY event_date, event_time",
-                (group_id,),
-            )
+            cur = conn.execute(query, tuple(params))
             return [dict(r) for r in cur.fetchall()]
 
     def update_event(self, event_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         if not updates:
-            return self.get_event(event_id) or {}
+            return self.get_event_by_id(event_id) or {}
         fields = []
         values: List[Any] = []
         for k, v in updates.items():
@@ -479,7 +545,7 @@ class LocalDBService:
                 f"UPDATE events SET {', '.join(fields)} WHERE event_id = ?",
                 tuple(values),
             )
-        return self.get_event(event_id) or {}
+        return self.get_event_by_id(event_id) or {}
 
     def delete_event(self, event_id: str) -> None:
         with self._conn() as conn:
@@ -487,43 +553,71 @@ class LocalDBService:
 
     # ============= PAYMENT OPERATIONS =============
 
-    def create_payment(self, group_id: int, payment_data: Dict[str, Any]) -> Dict[str, Any]:
-        payment_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
+    def create_payment(self, payment_data: dict) -> None:
+        """
+        Insert a new payment row and update the member's running balance.
 
+        Expected keys in payment_data:
+            payment_id, group_id, user_id, amount, description,
+            payment_type ('CHARGE' or 'CREDIT'),
+            status,                 # usually 'PENDING' on create
+            due_date (or None),
+            created_by, created_at  # ISO strings
+            optional: paid_date
+        """
+        payment_id = payment_data["payment_id"]
+        group_id = payment_data["group_id"]
+        user_id = payment_data["user_id"]
+        amount = float(payment_data["amount"])
+        description = payment_data["description"]
+        payment_type = payment_data["payment_type"]
+        status = payment_data["status"]
+        due_date = payment_data.get("due_date")
+        paid_date = payment_data.get("paid_date")          # usually None on create
+        created_by = payment_data["created_by"]
+        created_at = payment_data["created_at"]
+
+        # INSERT that matches your payments table (11 columns, NO updated_at)
         with self._conn() as conn:
             conn.execute(
                 """
-                INSERT INTO payments
-                    (payment_id, group_id, user_id, user_name, amount, description,
-                     payment_type, status, due_date, paid_date,
-                     created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO payments (
+                    payment_id,
+                    group_id,
+                    user_id,
+                    amount,
+                    description,
+                    payment_type,
+                    status,
+                    due_date,
+                    paid_date,
+                    created_by,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment_id,
                     group_id,
-                    payment_data["user_id"],
-                    payment_data["user_name"],
-                    payment_data["amount"],
-                    payment_data["description"],
-                    payment_data["payment_type"],
-                    payment_data["status"],
-                    payment_data.get("due_date"),
-                    payment_data.get("paid_date"),
-                    payment_data["created_by"],
-                    now,
+                    user_id,
+                    amount,
+                    description,
+                    payment_type,
+                    status,
+                    due_date,
+                    paid_date,
+                    created_by,
+                    created_at,
                 ),
             )
 
-        # adjust balance
-        amount = payment_data["amount"]
-        if payment_data["payment_type"] == "CHARGE":
-            self.update_member_balance(payment_data["user_id"], group_id, -amount)
-        elif payment_data["payment_type"] == "CREDIT":
-            self.update_member_balance(payment_data["user_id"], group_id, amount)
-
-        return self.get_payment(payment_id)
+        # Adjust member balance based on payment_type
+        # CHARGE  -> member owes more  -> balance goes DOWN (subtract amount)
+        # CREDIT  -> member owes less  -> balance goes UP   (add amount)
+        if payment_type == "CHARGE":
+            self.update_member_balance(user_id, group_id, -amount)
+        elif payment_type == "CREDIT":
+            self.update_member_balance(user_id, group_id, amount)
 
     def get_payment(self, payment_id: str) -> Optional[Dict[str, Any]]:
         with self._conn() as conn:
@@ -533,12 +627,42 @@ class LocalDBService:
             row = cur.fetchone()
             return dict(row) if row else None
 
-    def get_group_payments(self, group_id: int) -> List[Dict[str, Any]]:
+    def get_payment_by_id(self, payment_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Small wrapper to match the old interface used by the payments API.
+        """
+        return self.get_payment(payment_id)
+
+    def get_group_payments(
+        self,
+        group_id: int,
+        user_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return payments for a group, optionally filtered by user_id and status.
+
+        This matches the usage in the payments API, which passes user_id and/or
+        status as keyword arguments.
+        """
+        query = """
+            SELECT * FROM payments
+            WHERE group_id = ?
+        """
+        params: List[Any] = [group_id]
+
+        if user_id:
+            query += " AND user_id = ?"
+            params.append(user_id)
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        query += " ORDER BY created_at DESC"
+
         with self._conn() as conn:
-            cur = conn.execute(
-                "SELECT * FROM payments WHERE group_id = ? ORDER BY created_at DESC",
-                (group_id,),
-            )
+            cur = conn.execute(query, tuple(params))
             return [dict(r) for r in cur.fetchall()]
 
     def get_user_payments(self, user_id: str) -> List[Dict[str, Any]]:

@@ -60,28 +60,32 @@ const PaymentsPage: React.FC = () => {
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    ) => {
         const { name, value } = e.target;
         setFormData({
             ...formData,
-            [name]: name === 'amount' ? parseFloat(value) || 0 : value
+            [name]: name === 'amount' ? parseFloat(value) || 0 : value,
         });
     };
 
-    const handleBulkChargeChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleBulkChargeChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
         const { name, value } = e.target;
         setbulkChargeData({
             ...bulkChargeData,
-            [name]: name === 'amount' ? parseFloat(value) || 0 : value
+            [name]: name === 'amount' ? parseFloat(value) || 0 : value,
         });
     };
 
     const toggleMemberForBulkCharge = (userId: string) => {
-        setbulkChargeData(prev => ({
+        setbulkChargeData((prev) => ({
             ...prev,
             user_ids: prev.user_ids.includes(userId)
-                ? prev.user_ids.filter(id => id !== userId)
-                : [...prev.user_ids, userId]
+                ? prev.user_ids.filter((id) => id !== userId)
+                : [...prev.user_ids, userId],
         }));
     };
 
@@ -106,7 +110,11 @@ const PaymentsPage: React.FC = () => {
     const handleBulkCharge = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (bulkChargeData.user_ids.length === 0 || bulkChargeData.amount <= 0 || !bulkChargeData.description) {
+        if (
+            bulkChargeData.user_ids.length === 0 ||
+            bulkChargeData.amount <= 0 ||
+            !bulkChargeData.description
+        ) {
             alert('Please select members and fill in all fields');
             return;
         }
@@ -150,26 +158,133 @@ const PaymentsPage: React.FC = () => {
         }
     };
 
-    const filteredPayments = payments.filter(p => {
+    const filteredPayments = payments.filter((p) => {
         if (filterStatus === 'all') return true;
         return p.status === filterStatus;
     });
 
     const totalOwed = balances.reduce((sum, b) => sum + b.balance, 0);
-    const unpaidCount = payments.filter(p => p.status === 'unpaid').length;
+    const unpaidCount = payments.filter((p) => p.status === 'unpaid').length;
 
     if (loading) {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-64">
                     <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto" />
                         <p className="mt-4 text-gray-600">Loading payments...</p>
                     </div>
                 </div>
             </DashboardLayout>
         );
     }
+
+    // --- Shared Payment History content so we can reuse it in both layouts ---
+    const paymentHistoryCard = (
+        <div className="card">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Payment History</h2>
+                <div className="flex space-x-2">
+                    <button
+                        onClick={() => setFilterStatus('all')}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'all'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                    >
+                        All
+                    </button>
+                    <button
+                        onClick={() => setFilterStatus('unpaid')}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'unpaid'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                    >
+                        Unpaid
+                    </button>
+                    <button
+                        onClick={() => setFilterStatus('paid')}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'paid'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                    >
+                        Paid
+                    </button>
+                </div>
+            </div>
+
+            {filteredPayments.length === 0 ? (
+                <div className="text-center py-8">
+                    <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">No payments found</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {filteredPayments.map((payment) => (
+                        <div
+                            key={payment.payment_id}
+                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            <div className="flex-1">
+                                <div className="flex items-center space-x-3">
+                                    <span
+                                        className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'paid'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-orange-100 text-orange-800'
+                                            }`}
+                                    >
+                                        {payment.status}
+                                    </span>
+                                    <p className="font-medium text-gray-900">{payment.user_name}</p>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">{payment.description}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {new Date(payment.created_at).toLocaleDateString()}
+                                </p>
+                            </div>
+
+                            <div className="flex items-center space-x-4">
+                                <p className="text-lg font-bold text-gray-900">
+                                    ${payment.amount.toFixed(2)}
+                                </p>
+
+                                {isAdmin && (
+                                    <div className="flex space-x-2">
+                                        {payment.status === 'unpaid' ? (
+                                            <button
+                                                onClick={() => handleMarkPaid(payment.payment_id)}
+                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                                title="Mark as paid"
+                                            >
+                                                <Check className="h-4 w-4" />
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleMarkUnpaid(payment.payment_id)}
+                                                className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                title="Mark as unpaid"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => handleDelete(payment.payment_id)}
+                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Delete payment"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <DashboardLayout>
@@ -182,11 +297,18 @@ const PaymentsPage: React.FC = () => {
                     </div>
                     {isAdmin && (
                         <div className="flex space-x-3">
-                            <Button variant="secondary" onClick={() => setShowBulkChargeModal(true)} className="flex items-center space-x-2">
+                            <Button
+                                variant="secondary"
+                                onClick={() => setShowBulkChargeModal(true)}
+                                className="flex items-center space-x-2"
+                            >
                                 <Users className="h-4 w-4" />
                                 <span>Bulk Charge</span>
                             </Button>
-                            <Button onClick={() => setShowCreateModal(true)} className="flex items-center space-x-2">
+                            <Button
+                                onClick={() => setShowCreateModal(true)}
+                                className="flex items-center space-x-2"
+                            >
                                 <Plus className="h-4 w-4" />
                                 <span>Add Payment</span>
                             </Button>
@@ -201,7 +323,7 @@ const PaymentsPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Stats Cards */}
+                {/* Top stats row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {isAdmin ? (
                         <>
@@ -223,7 +345,9 @@ const PaymentsPage: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Unpaid</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">{unpaidCount}</p>
+                                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                                            {unpaidCount}
+                                        </p>
                                     </div>
                                     <div className="p-3 bg-orange-100 rounded-lg">
                                         <AlertCircle className="h-6 w-6 text-orange-600" />
@@ -235,7 +359,9 @@ const PaymentsPage: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Total Payments</p>
-                                        <p className="text-2xl font-bold text-gray-900 mt-1">{payments.length}</p>
+                                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                                            {payments.length}
+                                        </p>
                                     </div>
                                     <div className="p-3 bg-green-100 rounded-lg">
                                         <Check className="h-6 w-6 text-green-600" />
@@ -265,146 +391,62 @@ const PaymentsPage: React.FC = () => {
                     )}
                 </div>
 
-                {/* Member Balances (Admin only) */}
-                {isAdmin && balances.length > 0 && (
-                    <div className="card">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">Member Balances</h2>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead>
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Member
-                                        </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Balance Owed
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {balances.map((balance) => (
-                                        <tr key={balance.user_id}>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    {balance.user_name}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                <span className={`text-sm font-semibold ${balance.balance > 0 ? 'text-orange-600' : 'text-green-600'
-                                                    }`}>
-                                                    ${balance.balance.toFixed(2)}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Payments List */}
-                <div className="card">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-bold text-gray-900">Payment History</h2>
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={() => setFilterStatus('all')}
-                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'all'
-                                        ? 'bg-primary-600 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                All
-                            </button>
-                            <button
-                                onClick={() => setFilterStatus('unpaid')}
-                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'unpaid'
-                                        ? 'bg-primary-600 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                Unpaid
-                            </button>
-                            <button
-                                onClick={() => setFilterStatus('paid')}
-                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${filterStatus === 'paid'
-                                        ? 'bg-primary-600 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                Paid
-                            </button>
-                        </div>
-                    </div>
-
-                    {filteredPayments.length === 0 ? (
-                        <div className="text-center py-8">
-                            <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                            <p className="text-gray-600">No payments found</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {filteredPayments.map((payment) => (
-                                <div
-                                    key={payment.payment_id}
-                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                >
-                                    <div className="flex-1">
-                                        <div className="flex items-center space-x-3">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'paid'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-orange-100 text-orange-800'
-                                                }`}>
-                                                {payment.status}
-                                            </span>
-                                            <p className="font-medium text-gray-900">{payment.user_name}</p>
-                                        </div>
-                                        <p className="text-sm text-gray-600 mt-1">{payment.description}</p>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            {new Date(payment.created_at).toLocaleDateString()}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-center space-x-4">
-                                        <p className="text-lg font-bold text-gray-900">
-                                            ${payment.amount.toFixed(2)}
-                                        </p>
-
-                                        {isAdmin && (
-                                            <div className="flex space-x-2">
-                                                {payment.status === 'unpaid' ? (
-                                                    <button
-                                                        onClick={() => handleMarkPaid(payment.payment_id)}
-                                                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                        title="Mark as paid"
-                                                    >
-                                                        <Check className="h-4 w-4" />
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleMarkUnpaid(payment.payment_id)}
-                                                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                                        title="Mark as unpaid"
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => handleDelete(payment.payment_id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Delete payment"
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                {/* Main content row: 2 columns for admin, 1 column for members */}
+                {isAdmin ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left: Member balances */}
+                        <div className="card">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Member Balances</h2>
+                            {balances.length === 0 ? (
+                                <p className="text-sm text-gray-500">
+                                    No members with balances yet.
+                                </p>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead>
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Member
+                                                </th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Balance Owed
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {balances.map((balance) => (
+                                                <tr key={balance.user_id}>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {balance.user_name}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                        <span
+                                                            className={`text-sm font-semibold ${balance.balance > 0
+                                                                    ? 'text-orange-600'
+                                                                    : 'text-green-600'
+                                                                }`}
+                                                        >
+                                                            ${balance.balance.toFixed(2)}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            ))}
+                            )}
                         </div>
-                    )}
-                </div>
+
+                        {/* Right: Payment history */}
+                        {paymentHistoryCard}
+                    </div>
+                ) : (
+                    // Non-admins: just show payment history full width
+                    paymentHistoryCard
+                )}
 
                 {/* Create Payment Modal */}
                 {showCreateModal && (
@@ -433,7 +475,7 @@ const PaymentsPage: React.FC = () => {
                                         required
                                     >
                                         <option value="">Select a member</option>
-                                        {members.map(member => (
+                                        {members.map((member) => (
                                             <option key={member.user_id} value={member.user_id}>
                                                 {member.display_name}
                                             </option>
@@ -500,15 +542,24 @@ const PaymentsPage: React.FC = () => {
                                         Select Members
                                     </label>
                                     <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                                        {members.map(member => (
-                                            <label key={member.user_id} className="flex items-center space-x-2 cursor-pointer">
+                                        {members.map((member) => (
+                                            <label
+                                                key={member.user_id}
+                                                className="flex items-center space-x-2 cursor-pointer"
+                                            >
                                                 <input
                                                     type="checkbox"
-                                                    checked={bulkChargeData.user_ids.includes(member.user_id)}
-                                                    onChange={() => toggleMemberForBulkCharge(member.user_id)}
+                                                    checked={bulkChargeData.user_ids.includes(
+                                                        member.user_id
+                                                    )}
+                                                    onChange={() =>
+                                                        toggleMemberForBulkCharge(member.user_id)
+                                                    }
                                                     className="rounded text-primary-600 focus:ring-primary-500"
                                                 />
-                                                <span className="text-sm text-gray-900">{member.display_name}</span>
+                                                <span className="text-sm text-gray-900">
+                                                    {member.display_name}
+                                                </span>
                                             </label>
                                         ))}
                                     </div>

@@ -3,8 +3,16 @@ import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
-import api, { Event, CreateEventRequest } from '../api/api-client';
+import api, { Event } from '../api/api-client';
 import { Calendar, Clock, MapPin, Plus, Edit2, Trash2, X, AlertCircle } from 'lucide-react';
+
+type EventFormData = {
+    title: string;
+    date: string;       // maps to event_date
+    time: string;       // maps to event_time
+    location: string;
+    description: string;
+};
 
 const SchedulePage: React.FC = () => {
     const { user } = useAuth();
@@ -18,7 +26,7 @@ const SchedulePage: React.FC = () => {
     const [showEditModal, setShowEditModal] = useState<Event | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-    const [formData, setFormData] = useState<CreateEventRequest>({
+    const [formData, setFormData] = useState<EventFormData>({
         title: '',
         date: '',
         time: '',
@@ -35,9 +43,10 @@ const SchedulePage: React.FC = () => {
         setError('');
         try {
             const data = await api.events.getAll();
-            // Sort by date
+            // Sort by date & time using event_date/event_time from API
             const sorted = data.sort((a, b) =>
-                new Date(a.date + ' ' + a.time).getTime() - new Date(b.date + ' ' + b.time).getTime()
+                new Date(a.event_date + ' ' + a.event_time).getTime() -
+                new Date(b.event_date + ' ' + b.event_time).getTime()
             );
             setEvents(sorted);
         } catch (err: any) {
@@ -70,7 +79,14 @@ const SchedulePage: React.FC = () => {
         }
 
         try {
-            await api.events.create(formData);
+            await api.events.create({
+                title: formData.title,
+                event_date: formData.date,
+                event_time: formData.time,
+                location: formData.location,
+                description: formData.description,
+                event_type: 'PRACTICE', // default for now; can add a selector later
+            });
             await fetchEvents();
             setShowCreateModal(false);
             resetForm();
@@ -83,9 +99,9 @@ const SchedulePage: React.FC = () => {
         setShowEditModal(event);
         setFormData({
             title: event.title,
-            date: event.date,
-            time: event.time,
-            location: event.location,
+            date: event.event_date,
+            time: event.event_time,
+            location: event.location || '',
             description: event.description || '',
         });
     };
@@ -100,7 +116,14 @@ const SchedulePage: React.FC = () => {
         }
 
         try {
-            await api.events.update(showEditModal.event_id, formData);
+            await api.events.update(showEditModal.event_id, {
+                title: formData.title,
+                event_date: formData.date,
+                event_time: formData.time,
+                location: formData.location,
+                description: formData.description,
+                event_type: showEditModal.event_type, // keep existing type
+            });
             await fetchEvents();
             setShowEditModal(null);
             resetForm();
@@ -138,7 +161,7 @@ const SchedulePage: React.FC = () => {
     };
 
     const isUpcoming = (event: Event) => {
-        const eventDateTime = new Date(event.date + ' ' + event.time);
+        const eventDateTime = new Date(event.event_date + ' ' + event.event_time);
         return eventDateTime >= new Date();
     };
 
@@ -196,12 +219,12 @@ const SchedulePage: React.FC = () => {
                                             <div className="space-y-2">
                                                 <div className="flex items-center text-gray-600">
                                                     <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-                                                    <span>{formatDate(event.date)}</span>
+                                                    <span>{formatDate(event.event_date)}</span>
                                                 </div>
 
                                                 <div className="flex items-center text-gray-600">
                                                     <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-                                                    <span>{formatTime(event.time)}</span>
+                                                    <span>{formatTime(event.event_time)}</span>
                                                 </div>
 
                                                 <div className="flex items-center text-gray-600">
@@ -254,7 +277,7 @@ const SchedulePage: React.FC = () => {
                                             <div className="space-y-1 text-sm">
                                                 <div className="flex items-center text-gray-600">
                                                     <Calendar className="h-3 w-3 mr-2" />
-                                                    <span>{formatDate(event.date)}</span>
+                                                    <span>{formatDate(event.event_date)}</span>
                                                 </div>
 
                                                 <div className="flex items-center text-gray-600">
