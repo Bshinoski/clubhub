@@ -2,8 +2,8 @@
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api, { Member, Event, MemberBalance } from '../api/api-client';
-import { Users, Calendar, DollarSign, Camera, TrendingUp, AlertCircle } from 'lucide-react';
+import api, { Member, Event, MemberBalance, Group, PaymentStatistics, Message } from '../api/api-client';
+import { Users, Calendar, Clock, DollarSign, Camera, TrendingUp, AlertCircle, MessageSquare, Info } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
     const { user } = useAuth();
@@ -17,6 +17,9 @@ const AdminDashboard: React.FC = () => {
     });
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
     const [topBalances, setTopBalances] = useState<MemberBalance[]>([]);
+    const [groupInfo, setGroupInfo] = useState<Group | null>(null);
+    const [paymentStats, setPaymentStats] = useState<PaymentStatistics | null>(null);
+    const [recentMessages, setRecentMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -29,11 +32,14 @@ const AdminDashboard: React.FC = () => {
         setError('');
         try {
             // Fetch all data in parallel
-            const [membersData, eventsData, balancesData, photoCountData] = await Promise.all([
+            const [membersData, eventsData, balancesData, photoCountData, groupData, statsData, messagesData] = await Promise.all([
                 api.members.getAll(),
-                api.events.getUpcoming({ limit: 3 }),
+                api.events.getUpcoming(3),
                 api.payments.getBalances(),
                 api.photos.getCount(),
+                api.groups.getMyGroup(),
+                api.payments.getStatistics(),
+                api.chat.getMessages({ limit: 5 }),
             ]);
 
             // Calculate stats
@@ -54,6 +60,9 @@ const AdminDashboard: React.FC = () => {
 
             setUpcomingEvents(eventsData);
             setTopBalances(topOwing);
+            setGroupInfo(groupData);
+            setPaymentStats(statsData);
+            setRecentMessages(messagesData);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
         } finally {
@@ -192,11 +201,11 @@ const AdminDashboard: React.FC = () => {
                                                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                                                     <span className="flex items-center">
                                                         <Calendar className="h-3 w-3 mr-1" />
-                                                        {formatDate(event.date)}
+                                                        {formatDate(event.event_date)}
                                                     </span>
                                                     <span className="flex items-center">
                                                         <Clock className="h-3 w-3 mr-1" />
-                                                        {formatTime(event.time)}
+                                                        {formatTime(event.event_time)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -241,6 +250,129 @@ const AdminDashboard: React.FC = () => {
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Group Info & Payment Statistics */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Group Info */}
+                    <div className="card">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Team Information</h2>
+                            <Info className="h-5 w-5 text-gray-400" />
+                        </div>
+
+                        {groupInfo ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-sm text-gray-600">Team Name</p>
+                                    <p className="text-lg font-semibold text-gray-900 mt-1">{groupInfo.name}</p>
+                                </div>
+                                {groupInfo.description && (
+                                    <div>
+                                        <p className="text-sm text-gray-600">Description</p>
+                                        <p className="text-gray-900 mt-1">{groupInfo.description}</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-sm text-gray-600">Invite Code</p>
+                                    <p className="text-lg font-mono font-semibold text-primary-600 mt-1">{groupInfo.invite_code}</p>
+                                </div>
+                                <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                                    <div>
+                                        <p className="text-sm text-gray-600">Created</p>
+                                        <p className="text-gray-900 mt-1">
+                                            {new Date(groupInfo.created_at).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm text-gray-600">Members</p>
+                                        <p className="text-2xl font-bold text-primary-600 mt-1">{groupInfo.member_count}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <p className="text-gray-600 text-sm">Loading team info...</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Payment Statistics */}
+                    <div className="card">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-gray-900">Payment Statistics</h2>
+                            <TrendingUp className="h-5 w-5 text-green-600" />
+                        </div>
+
+                        {paymentStats ? (
+                            <div className="space-y-4">
+                                <div className="p-4 bg-green-50 rounded-lg">
+                                    <p className="text-sm text-green-700 font-medium">Total Collected</p>
+                                    <p className="text-3xl font-bold text-green-900 mt-2">
+                                        ${paymentStats.total_money_collected.toFixed(2)}
+                                    </p>
+                                </div>
+                                <div className="p-4 bg-orange-50 rounded-lg">
+                                    <p className="text-sm text-orange-700 font-medium">Total Outstanding</p>
+                                    <p className="text-3xl font-bold text-orange-900 mt-2">
+                                        ${paymentStats.total_money_owed.toFixed(2)}
+                                    </p>
+                                </div>
+                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p className="text-sm text-gray-600">Total Payments</p>
+                                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                                            {paymentStats.total_payments_count}
+                                        </p>
+                                    </div>
+                                    <DollarSign className="h-8 w-8 text-gray-400" />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <p className="text-gray-600 text-sm">Loading payment stats...</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Recent Team Chat */}
+                <div className="card">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Recent Team Chat</h2>
+                        <Link to="/chat" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                            View all
+                        </Link>
+                    </div>
+
+                    {recentMessages.length === 0 ? (
+                        <div className="text-center py-8">
+                            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                            <p className="text-gray-600 text-sm">No recent messages</p>
+                            <Link to="/chat" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                                Start a conversation
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {recentMessages.map((message) => (
+                                <div key={message.message_id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div className="flex items-start justify-between mb-1">
+                                        <span className="font-semibold text-gray-900">{message.user_name}</span>
+                                        <span className="text-xs text-gray-500">
+                                            {new Date(message.created_at).toLocaleString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: 'numeric',
+                                                minute: '2-digit',
+                                            })}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-700">{message.content}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Quick Actions */}
