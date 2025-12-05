@@ -58,7 +58,7 @@ Resources:
           JWT_SECRET_KEY: !Ref JWTSecretKey
           CORS_ORIGINS: !Ref FrontendURL
           FRONTEND_URL: !Ref FrontendURL
-          LOCAL_STORAGE_URL_PREFIX: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/uploads
+          #LOCAL_STORAGE_URL_PREFIX: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/uploads
           S3_BUCKET_NAME: !Ref S3BucketName
           AWS_REGION: !Ref AWS::Region
       Events:

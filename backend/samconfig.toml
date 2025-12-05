@@ -5,13 +5,16 @@ version = 0.1
 [default.deploy.parameters]
 stack_name = "clubhub-api"
 s3_prefix = "clubhub-api"
-region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "JWTSecretKey=\"GENERATE_NEW_SECRET_KEY\" FrontendURL=\"https://main.YOUR_APP_ID.amplifyapp.com\" UseS3Storage=\"false\" S3BucketName=\"clubhub-photos-YOUR_UNIQUE_ID\""
+parameter_overrides = "JWTSecretKey=\"2f5424fedebec80318d2d0d0660459e99dff39d4ab099f9df07c7dfa3149fbd8\" FrontendURL=\"https://localhost\" UseS3Storage=\"false\" S3BucketName=\"clubhub-photos-ben-123\""
 image_repositories = []
+resolve_s3 = true
 
 [default.build]
 [default.build.parameters]
 cached = true
 parallel = true
+
+[default.global.parameters]
+region = "us-east-1"
