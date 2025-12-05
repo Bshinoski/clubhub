@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     
     # S3
     S3_BUCKET_NAME: str = "clubapp-photos"
-    
+
+    # Local Storage (used when AWS is not configured)
+    USE_LOCAL_STORAGE: bool = True  # Set to False to use S3
+    LOCAL_STORAGE_PATH: str = "./uploads"
+    LOCAL_STORAGE_URL_PREFIX: str = "http://localhost:8000/uploads"
+
     # JWT
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"

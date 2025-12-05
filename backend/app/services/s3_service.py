@@ -1,12 +1,80 @@
-import boto3
+import os
+from pathlib import Path
 from typing import Dict, Any, Optional
 from urllib.parse import urlparse
+import shutil
 
 from app.config import settings
 
 
-class S3Service:
+class LocalStorageService:
+    """Local file storage service for development/testing without AWS"""
+
     def __init__(self):
+        self.storage_path = Path(settings.LOCAL_STORAGE_PATH)
+        self.url_prefix = settings.LOCAL_STORAGE_URL_PREFIX
+        # Create storage directory if it doesn't exist
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+
+    def upload_photo(self, file, group_id: str, photo_id: str) -> str:
+        """
+        Upload a photo file to local storage and return the URL.
+
+        `file` is a FastAPI UploadFile.
+        """
+        filename = file.filename or "photo"
+        if "." in filename:
+            ext = filename.rsplit(".", 1)[-1]
+        else:
+            ext = "jpg"
+
+        # Create directory structure: uploads/groups/{group_id}/photos/
+        group_dir = self.storage_path / "groups" / str(group_id) / "photos"
+        group_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save file
+        file_path = group_dir / f"{photo_id}.{ext}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Return URL path
+        relative_path = f"groups/{group_id}/photos/{photo_id}.{ext}"
+        return f"{self.url_prefix}/{relative_path}"
+
+    def delete_photo(self, url_or_path: str) -> bool:
+        """Delete photo from local storage"""
+        try:
+            # Extract relative path from URL
+            if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
+                parsed = urlparse(url_or_path)
+                relative_path = parsed.path.lstrip("/uploads/")
+            else:
+                relative_path = url_or_path
+
+            file_path = self.storage_path / relative_path
+            if file_path.exists():
+                file_path.unlink()
+                return True
+            return False
+        except Exception as e:
+            print(f"Error deleting photo: {e}")
+            return False
+
+    def get_photo_url(self, url_or_path: str) -> str:
+        """
+        Return a usable URL for a photo.
+        If it's already a URL, just return it.
+        """
+        if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
+            return url_or_path
+        return f"{self.url_prefix}/{url_or_path}"
+
+
+class S3Service:
+    """AWS S3 storage service for production"""
+
+    def __init__(self):
+        import boto3
         self.client = boto3.client(
             "s3",
             region_name=settings.AWS_REGION,
@@ -16,32 +84,26 @@ class S3Service:
         self.bucket = settings.S3_BUCKET_NAME
         self.region = settings.AWS_REGION
 
-    # ---------- Internal helpers ----------
-
     def _key_from_url(self, url_or_key: str) -> str:
         """
         Accept either a full S3 URL or a raw key and return the S3 key.
         """
         if url_or_key.startswith("http://") or url_or_key.startswith("https://"):
             parsed = urlparse(url_or_key)
-            # parsed.path starts with '/'
             return parsed.path.lstrip("/")
         return url_or_key
 
     def _object_url(self, key: str) -> str:
         """
         Build a public-style URL for an object key.
-        (Will only actually be accessible if your bucket/object ACL allows it.)
         """
         return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
-
-    # ---------- Main operations used by photos.py ----------
 
     def upload_photo(self, file, group_id: str, photo_id: str) -> str:
         """
         Upload a photo file object to S3 and return the object URL.
 
-        `file` is a FastAPI UploadFile in our usage.
+        `file` is a FastAPI UploadFile.
         """
         filename = file.filename or "photo"
         if "." in filename:
@@ -80,13 +142,10 @@ class S3Service:
             return url_or_key
         return self._object_url(url_or_key)
 
-    # ---------- Optional: presigned URL helpers (not required by photos.py) ----------
-
     def generate_presigned_upload_url(
         self, group_id: str, file_extension: str
     ) -> Dict[str, Any]:
         """Generate presigned URL for photo upload."""
-        # This is kept in case you want presigned uploads later.
         photo_id = f"{group_id}-temp"
         key = f"groups/{group_id}/photos/{photo_id}.{file_extension}"
 
@@ -125,20 +184,31 @@ class S3Service:
             return None
 
 
-# ============= FUNCTION WRAPPERS FOR ROUTERS =============
+# ============= STORAGE SERVICE FACTORY =============
 
-_s3_service = S3Service()
+def _get_storage_service():
+    """Get the appropriate storage service based on configuration"""
+    if settings.USE_LOCAL_STORAGE:
+        return LocalStorageService()
+    else:
+        return S3Service()
+
+
+_storage_service = _get_storage_service()
+
+
+# ============= FUNCTION WRAPPERS FOR ROUTERS =============
 
 def upload_photo(file, group_id: str, photo_id: str) -> str:
     """Wrapper used by photos API to upload and return URL."""
-    return _s3_service.upload_photo(file, group_id, photo_id)
+    return _storage_service.upload_photo(file, group_id, photo_id)
 
 
 def get_photo_url(key_or_url: str) -> str:
     """Wrapper used by photos API to get a URL for a photo."""
-    return _s3_service.get_photo_url(key_or_url)
+    return _storage_service.get_photo_url(key_or_url)
 
 
 def delete_photo(key_or_url: str) -> bool:
     """Wrapper used by photos API to delete a photo."""
-    return _s3_service.delete_photo(key_or_url)
+    return _storage_service.delete_photo(key_or_url)
