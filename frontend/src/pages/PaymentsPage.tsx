@@ -22,7 +22,7 @@ const PaymentsPage: React.FC = () => {
     const [showBulkChargeModal, setShowBulkChargeModal] = useState(false);
     const [showBulkCreditModal, setShowBulkCreditModal] = useState(false);
     const [showPayNowModal, setShowPayNowModal] = useState(false);
-    const [paymentToPay, setPaymentToPay] = useState<Payment | null>(null);
+    const [paymentAmount, setPaymentAmount] = useState<number>(0);
     const [cardNumber, setCardNumber] = useState('');
 
     const [formData, setFormData] = useState<CreatePaymentRequest>({
@@ -223,8 +223,9 @@ const PaymentsPage: React.FC = () => {
         }
     };
 
-    const handlePayNowClick = (payment: Payment) => {
-        setPaymentToPay(payment);
+    const handlePayNowClick = () => {
+        // Default to full balance
+        setPaymentAmount(myBalance > 0 ? myBalance : 0);
         setCardNumber('');
         setShowPayNowModal(true);
     };
@@ -232,19 +233,36 @@ const PaymentsPage: React.FC = () => {
     const handlePayNowSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!paymentToPay) return;
-
         // Validate fake card number (just needs to be 16 digits)
         if (cardNumber.replace(/\s/g, '').length !== 16 || !/^\d+$/.test(cardNumber.replace(/\s/g, ''))) {
             alert('Please enter a valid 16-digit card number');
             return;
         }
 
+        if (paymentAmount <= 0) {
+            alert('Please enter a valid payment amount');
+            return;
+        }
+
         try {
-            await api.payments.updateStatus(paymentToPay.payment_id, 'PAID');
+            // Get all pending charges for the current user, sorted by date
+            const myPendingCharges = myPayments
+                .filter(p => p.payment_type === 'CHARGE' && p.status === 'PENDING')
+                .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+            let remainingAmount = paymentAmount;
+
+            // Mark charges as paid until we've used up the payment amount
+            for (const charge of myPendingCharges) {
+                if (remainingAmount <= 0) break;
+
+                await api.payments.updateStatus(charge.payment_id, 'PAID');
+                remainingAmount -= charge.amount;
+            }
+
             await fetchData();
             setShowPayNowModal(false);
-            setPaymentToPay(null);
+            setPaymentAmount(0);
             setCardNumber('');
             alert('Payment successful!');
         } catch (err: any) {
@@ -364,16 +382,6 @@ const PaymentsPage: React.FC = () => {
                                     }`}>
                                     {payment.payment_type === 'CREDIT' ? '+' : ''}${payment.amount.toFixed(2)}
                                 </p>
-
-                                {/* Pay Now button for unpaid charges */}
-                                {payment.status === 'PENDING' && payment.payment_type === 'CHARGE' && payment.user_id === user?.id && (
-                                    <button
-                                        onClick={() => handlePayNowClick(payment)}
-                                        className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                                    >
-                                        Pay Now
-                                    </button>
-                                )}
 
                                 {isAdmin && (
                                     <div className="flex space-x-2">
@@ -523,6 +531,14 @@ const PaymentsPage: React.FC = () => {
                                     <p className="text-xs text-gray-600 mt-1">
                                         {myBalance < 0 ? 'Credit balance' : myBalance > 0 ? 'Amount owed' : 'All paid up!'}
                                     </p>
+                                    {myBalance > 0 && (
+                                        <button
+                                            onClick={handlePayNowClick}
+                                            className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                        >
+                                            Pay Now
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -636,7 +652,7 @@ const PaymentsPage: React.FC = () => {
                         {/* Member View */}
                         <div className="card md:col-span-3">
                             <div className="flex items-center justify-between">
-                                <div>
+                                <div className="flex-1">
                                     <p className="text-sm font-medium text-gray-600">Your Balance</p>
                                     <p className={`text-3xl font-bold mt-1 ${myBalance < 0 ? 'text-green-600' : myBalance > 0 ? 'text-orange-600' : 'text-gray-900'
                                         }`}>
@@ -645,6 +661,14 @@ const PaymentsPage: React.FC = () => {
                                     <p className="text-sm text-gray-600 mt-2">
                                         {myBalance < 0 ? 'You have a credit balance' : myBalance > 0 ? 'You have outstanding payments' : 'All paid up!'}
                                     </p>
+                                    {myBalance > 0 && (
+                                        <button
+                                            onClick={handlePayNowClick}
+                                            className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                        >
+                                            Pay Now
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="p-4 bg-primary-100 rounded-lg">
                                     <DollarSign className="h-8 w-8 text-primary-600" />
@@ -918,7 +942,7 @@ const PaymentsPage: React.FC = () => {
                 )}
 
                 {/* Pay Now Modal */}
-                {showPayNowModal && paymentToPay && (
+                {showPayNowModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-xl p-6 max-w-md w-full">
                             <div className="flex justify-between items-center mb-6">
@@ -933,13 +957,39 @@ const PaymentsPage: React.FC = () => {
 
                             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                                 <div className="flex justify-between items-center mb-2">
-                                    <span className="text-sm text-gray-600">Amount to Pay:</span>
-                                    <span className="text-2xl font-bold text-gray-900">${paymentToPay.amount.toFixed(2)}</span>
+                                    <span className="text-sm text-gray-600">Your Current Balance:</span>
+                                    <span className="text-2xl font-bold text-orange-600">${myBalance.toFixed(2)}</span>
                                 </div>
-                                <p className="text-sm text-gray-600">{paymentToPay.description}</p>
+                                <p className="text-xs text-gray-500">You can pay your full balance or a custom amount</p>
                             </div>
 
                             <form onSubmit={handlePayNowSubmit}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Payment Amount
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={paymentAmount || ''}
+                                        onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                                        placeholder="0.00"
+                                        step="0.01"
+                                        min="0.01"
+                                        max={myBalance}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-lg"
+                                        required
+                                    />
+                                    <div className="flex space-x-2 mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentAmount(myBalance)}
+                                            className="px-3 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+                                        >
+                                            Pay Full Balance (${myBalance.toFixed(2)})
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Card Number
@@ -1003,7 +1053,7 @@ const PaymentsPage: React.FC = () => {
                                         Cancel
                                     </Button>
                                     <Button type="submit" fullWidth>
-                                        Pay ${paymentToPay.amount.toFixed(2)}
+                                        Pay ${paymentAmount.toFixed(2)}
                                     </Button>
                                 </div>
                             </form>

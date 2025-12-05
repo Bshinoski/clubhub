@@ -195,7 +195,7 @@ async def get_my_balance(user_id: str = Depends(get_current_user_id)):
 async def get_payment_statistics(user_id: str = Depends(get_current_user_id)):
     """
     Get payment statistics for the group (admin only)
-    - total_money_owed: Sum of all unpaid charges (PENDING/OVERDUE)
+    - total_money_owed: Sum of all member balances (positive balances only)
     - total_money_collected: Sum of all paid charges
     - total_payments_count: Total number of payment records
     """
@@ -209,24 +209,27 @@ async def get_payment_statistics(user_id: str = Depends(get_current_user_id)):
 
         group_id = membership["group_id"]
 
-        # Get all payments for the group
-        all_payments = db.get_group_payments(group_id)
-
+        # Get all members and sum their positive balances
+        members = db.get_group_members(group_id)
         total_money_owed = 0.0
+        for member in members:
+            balance = db.get_user_balance(member["user_id"], group_id)
+            if balance > 0:  # Only count positive balances (money owed)
+                total_money_owed += balance
+
+        # Get all payments for collected amount and count
+        all_payments = db.get_group_payments(group_id)
         total_money_collected = 0.0
         total_payments_count = len(all_payments)
 
         for payment in all_payments:
-            amount = float(payment["amount"])
             payment_type = payment["payment_type"]
             status = payment["status"]
+            amount = float(payment["amount"])
 
-            # Only count CHARGE payments for owed/collected calculations
-            if payment_type == "CHARGE":
-                if status in ["PENDING", "OVERDUE"]:
-                    total_money_owed += amount
-                elif status == "PAID":
-                    total_money_collected += amount
+            # Only count PAID CHARGE payments for collected calculations
+            if payment_type == "CHARGE" and status == "PAID":
+                total_money_collected += amount
 
         return PaymentStatisticsResponse(
             total_money_owed=total_money_owed,
