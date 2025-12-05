@@ -54,6 +54,11 @@ class LocalDBService:
     - messages(message_id TEXT PK, group_id INTEGER,
                user_id TEXT, user_name TEXT,
                content TEXT, created_at TEXT)
+
+    - photos(photo_id TEXT PK, group_id INTEGER,
+             url TEXT, thumbnail_url TEXT,
+             caption TEXT, uploaded_by TEXT,
+             uploaded_at TEXT)
     """
 
     def __init__(self) -> None:
@@ -160,6 +165,20 @@ class LocalDBService:
                     user_name TEXT NOT NULL,
                     content TEXT NOT NULL,
                     created_at TEXT NOT NULL
+                )
+                """
+            )
+
+            c.execute(
+                """
+                CREATE TABLE IF NOT EXISTS photos (
+                    photo_id TEXT PRIMARY KEY,
+                    group_id INTEGER NOT NULL,
+                    url TEXT NOT NULL,
+                    thumbnail_url TEXT,
+                    caption TEXT,
+                    uploaded_by TEXT NOT NULL,
+                    uploaded_at TEXT NOT NULL
                 )
                 """
             )
@@ -732,6 +751,144 @@ class LocalDBService:
             rows = cur.fetchall()
             # oldest first for the frontend
             return [dict(r) for r in reversed(rows)]
+
+    # ============= PHOTO OPERATIONS =============
+
+    def create_photo(self, photo_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Insert a new photo.
+
+        Expected keys in photo_data:
+        - photo_id (str)
+        - group_id (int)
+        - url (str)
+        - thumbnail_url (str, optional)
+        - caption (str, optional)
+        - uploaded_by (str, user_id)
+        - uploaded_at (str, ISO timestamp)
+        """
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO photos
+                    (photo_id, group_id, url, thumbnail_url, caption, uploaded_by, uploaded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    photo_data["photo_id"],
+                    photo_data["group_id"],
+                    photo_data["url"],
+                    photo_data.get("thumbnail_url"),
+                    photo_data.get("caption"),
+                    photo_data["uploaded_by"],
+                    photo_data["uploaded_at"],
+                ),
+            )
+        return self.get_photo_by_id(photo_data["photo_id"])
+
+    def get_photo_by_id(self, photo_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a single photo by its ID.
+        """
+        with self._conn() as conn:
+            cur = conn.execute(
+                "SELECT * FROM photos WHERE photo_id = ?", (photo_id,)
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+    def get_group_photos(
+        self,
+        group_id: int,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all photos for a group, with optional pagination.
+
+        Args:
+            group_id: The group ID to fetch photos for
+            limit: Maximum number of photos to return
+            offset: Number of photos to skip
+
+        Returns:
+            List of photo dictionaries, ordered by upload time (newest first)
+        """
+        query = """
+            SELECT * FROM photos
+            WHERE group_id = ?
+            ORDER BY uploaded_at DESC
+        """
+        params: List[Any] = [group_id]
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        if offset is not None:
+            query += " OFFSET ?"
+            params.append(offset)
+
+        with self._conn() as conn:
+            cur = conn.execute(query, tuple(params))
+            return [dict(r) for r in cur.fetchall()]
+
+    def update_photo(self, photo_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update a photo's metadata (e.g., caption).
+
+        Args:
+            photo_id: The photo ID to update
+            updates: Dictionary of fields to update (e.g., {"caption": "New caption"})
+
+        Returns:
+            Updated photo dictionary
+        """
+        if not updates:
+            return self.get_photo_by_id(photo_id) or {}
+
+        fields = []
+        values: List[Any] = []
+        for k, v in updates.items():
+            fields.append(f"{k} = ?")
+            values.append(v)
+        values.append(photo_id)
+
+        with self._conn() as conn:
+            conn.execute(
+                f"UPDATE photos SET {', '.join(fields)} WHERE photo_id = ?",
+                tuple(values),
+            )
+
+        return self.get_photo_by_id(photo_id) or {}
+
+    def delete_photo(self, photo_id: str) -> None:
+        """
+        Delete a photo from the database.
+
+        Args:
+            photo_id: The photo ID to delete
+        """
+        with self._conn() as conn:
+            conn.execute("DELETE FROM photos WHERE photo_id = ?", (photo_id,))
+
+    def get_group_photo_count(self, group_id: int) -> int:
+        """
+        Get the total count of photos for a group.
+
+        Args:
+            group_id: The group ID
+
+        Returns:
+            Total number of photos in the group
+        """
+        with self._conn() as conn:
+            cur = conn.execute(
+                "SELECT COUNT(*) AS cnt FROM photos WHERE group_id = ?",
+                (group_id,),
+            )
+            row = cur.fetchone()
+            return int(row["cnt"]) if row else 0
 
 
 _db_service: Optional[LocalDBService] = None

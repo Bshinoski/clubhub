@@ -1,5 +1,7 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.config import settings
 
 # Import API routers
@@ -21,6 +23,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for local photo storage
+if settings.USE_LOCAL_STORAGE:
+    uploads_dir = Path(settings.LOCAL_STORAGE_PATH)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 # Health check endpoint
 @app.get("/")
@@ -44,8 +52,12 @@ app.include_router(photos.router, prefix="/api/photos", tags=["Photos"])
 @app.on_event("startup")
 async def startup_event():
     print(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} starting up...")
-    print(f"📊 DynamoDB Table: {settings.DYNAMODB_TABLE_NAME}")
-    print(f"🔐 Cognito Pool: {settings.COGNITO_USER_POOL_ID}")
+    print(f"📊 Database: SQLite (local)")
+    if settings.USE_LOCAL_STORAGE:
+        print(f"📸 Photo Storage: Local ({settings.LOCAL_STORAGE_PATH})")
+    else:
+        print(f"📸 Photo Storage: AWS S3 ({settings.S3_BUCKET_NAME})")
+    print(f"🔐 Auth: JWT (local)")
 
 # Shutdown event
 @app.on_event("shutdown")
