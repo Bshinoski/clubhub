@@ -12,13 +12,16 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     
+    # Database
+    DATABASE_URL: str = "sqlite:///./clubhub.db"  # Use /tmp/clubhub.db for Lambda
+
     # DynamoDB
     DYNAMODB_TABLE_NAME: str = "ClubAppTable"
     DYNAMODB_ENDPOINT: Optional[str] = None  # For local DynamoDB
-    
-    # Cognito
-    COGNITO_USER_POOL_ID: str
-    COGNITO_CLIENT_ID: str
+
+    # Cognito (Optional - not used in current JWT implementation)
+    COGNITO_USER_POOL_ID: Optional[str] = None
+    COGNITO_CLIENT_ID: Optional[str] = None
     COGNITO_REGION: str = "us-east-1"
     
     # S3
