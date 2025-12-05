@@ -13,6 +13,7 @@ frontend/.env
 frontend/.env.local
 frontend/dist/
 dist/
+*.tsbuildinfo
 
 # Uploads
 backend/uploads/
