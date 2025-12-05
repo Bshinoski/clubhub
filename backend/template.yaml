@@ -60,7 +60,7 @@ Resources:
           FRONTEND_URL: !Ref FrontendURL
           #LOCAL_STORAGE_URL_PREFIX: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/uploads
           S3_BUCKET_NAME: !Ref S3BucketName
-          AWS_REGION: !Ref AWS::Region
+          #AWS_REGION: !Ref AWS::Region
       Events:
         # HTTP API (API Gateway v2) - cheaper and simpler than REST API
         HttpApiEvent:
