@@ -596,7 +596,11 @@ class LocalDBService:
         created_by = payment_data["created_by"]
         created_at = payment_data["created_at"]
 
-        # INSERT that matches your payments table (11 columns, NO updated_at)
+        # Get user's name for the payment record
+        user = self.get_user_by_id(user_id)
+        user_name = user.get("display_name", user["email"]) if user else "Unknown"
+
+        # INSERT that matches your payments table (includes user_name)
         with self._conn() as conn:
             conn.execute(
                 """
@@ -604,6 +608,7 @@ class LocalDBService:
                     payment_id,
                     group_id,
                     user_id,
+                    user_name,
                     amount,
                     description,
                     payment_type,
@@ -613,12 +618,13 @@ class LocalDBService:
                     created_by,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment_id,
                     group_id,
                     user_id,
+                    user_name,
                     amount,
                     description,
                     payment_type,
