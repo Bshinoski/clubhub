@@ -404,7 +404,7 @@ const MemberDashboard: React.FC = () => {
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Links</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <Link
-                            to="/schedule"
+                            to="/dashboard/schedule"
                             className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-center"
                         >
                             <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-2" />
@@ -412,7 +412,7 @@ const MemberDashboard: React.FC = () => {
                         </Link>
 
                         <Link
-                            to="/roster"
+                            to="/dashboard/roster"
                             className="p-4 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors text-center"
                         >
                             <Users className="h-8 w-8 text-primary-600 mx-auto mb-2" />
@@ -420,7 +420,7 @@ const MemberDashboard: React.FC = () => {
                         </Link>
 
                         <Link
-                            to="/gallery"
+                            to="/dashboard/gallery"
                             className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-center"
                         >
                             <Camera className="h-8 w-8 text-purple-600 mx-auto mb-2" />
@@ -428,7 +428,7 @@ const MemberDashboard: React.FC = () => {
                         </Link>
 
                         <Link
-                            to="/chat"
+                            to="/dashboard/chat"
                             className="p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-center"
                         >
                             <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
