@@ -850,14 +850,14 @@ class LocalDBService:
         return self.get_message(message_id)
 
     def get_group_messages(self, group_id: int, limit: int = 50, before: str = None) -> List[Dict[str, Any]]:
-        """Get messages for a group, optionally paginated with before cursor"""
+        """Get messages for a group, optionally paginated with before cursor, ordered oldest to newest"""
         with self._conn() as conn:
             if before:
                 cur = conn.execute(
                     """
                     SELECT * FROM messages
                     WHERE group_id = ? AND created_at < ?
-                    ORDER BY created_at DESC
+                    ORDER BY created_at ASC
                     LIMIT ?
                     """,
                     (group_id, before, limit),
@@ -867,14 +867,14 @@ class LocalDBService:
                     """
                     SELECT * FROM messages
                     WHERE group_id = ?
-                    ORDER BY created_at DESC
+                    ORDER BY created_at ASC
                     LIMIT ?
                     """,
                     (group_id, limit),
                 )
             rows = cur.fetchall()
-            # oldest first for the frontend
-            return [dict(r) for r in reversed(rows)]
+            # Return messages in oldest-to-newest order
+            return [dict(r) for r in rows]
 
     def delete_message(self, message_id: str) -> bool:
         """Delete a message by ID"""
