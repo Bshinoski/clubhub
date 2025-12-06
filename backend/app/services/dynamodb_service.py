@@ -116,16 +116,20 @@ class DynamoDBService:
         """Create a new group and return its ID"""
         # Generate a unique group_id (using timestamp + random for uniqueness)
         group_id = int(datetime.utcnow().timestamp() * 1000)
-        created_at = datetime.utcnow().isoformat()
+        created_at = group_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'group_id': group_id,
             'name': group_data['name'],
             'description': group_data.get('description', ''),
-            'invite_code': group_data.get('invite_code', ''),
             'created_by': group_data.get('created_by', ''),
             'created_at': created_at
         }
+
+        # Only include invite_code if it's provided and non-empty
+        # DynamoDB GSI cannot have empty string values
+        if group_data.get('invite_code'):
+            item['invite_code'] = group_data['invite_code']
 
         self.groups_table.put_item(Item=item)
         return group_id
