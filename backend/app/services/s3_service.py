@@ -32,9 +32,6 @@ class LocalStorageService:
         group_dir = self.storage_path / "groups" / str(group_id) / "photos"
         group_dir.mkdir(parents=True, exist_ok=True)
 
-        # Reset file pointer to beginning before reading
-        file.file.seek(0)
-
         # Save file
         file_path = group_dir / f"{photo_id}.{ext}"
         with open(file_path, "wb") as buffer:
@@ -115,9 +112,6 @@ class S3Service:
             ext = "jpg"
 
         key = f"groups/{group_id}/photos/{photo_id}.{ext}"
-
-        # Reset file pointer to beginning before reading
-        file.file.seek(0)
 
         # Upload the file contents
         self.client.upload_fileobj(
