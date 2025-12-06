@@ -132,28 +132,19 @@ const ChatPage: React.FC = () => {
                                         key={message.message_id}
                                         className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                                     >
-                                        <div className={`max-w-md ${isCurrentUser ? 'order-2' : 'order-1'}`}>
-                                            <div className="flex items-center space-x-2 mb-1">
-                                                {!isCurrentUser && (
-                                                    <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                        <span className="text-primary-700 font-semibold text-sm">
-                                                            {message.user_name.charAt(0)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-900">
-                                                        {message.user_name}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        {new Date(message.created_at).toLocaleTimeString('en-US', {
-                                                            hour: 'numeric',
-                                                            minute: '2-digit',
-                                                        })}
-                                                    </p>
-                                                </div>
+                                        <div className="max-w-md">
+                                            <div className={`flex items-baseline space-x-2 mb-1 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                                                <p className="text-sm font-semibold text-gray-700">
+                                                    {message.user_name || 'Unknown User'}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {new Date(message.created_at).toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </p>
                                             </div>
-                                            <div className="flex items-start space-x-2">
+                                            <div className={`flex items-start space-x-2 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
                                                 <div
                                                     className={`px-4 py-2 rounded-lg ${isCurrentUser
                                                             ? 'bg-primary-600 text-white'
