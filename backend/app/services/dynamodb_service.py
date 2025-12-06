@@ -344,8 +344,7 @@ class DynamoDBService:
         group_id: int,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        event_type: Optional[str] = None,
-        limit: Optional[int] = None
+        event_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get events for a group with optional filters"""
         # Build query
@@ -371,10 +370,6 @@ class DynamoDBService:
 
         # Sort by date descending
         events.sort(key=lambda x: x.get('event_date', ''), reverse=True)
-
-        # Apply limit if specified
-        if limit is not None:
-            events = events[:limit]
 
         return decimal_to_float(events)
 
