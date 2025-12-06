@@ -138,13 +138,16 @@ async def signup(request: SignupRequest):
             "created_at": now,
         }
 
+        print(f"Creating user: {user_id}, email: {request.email}")
         db.create_user(user_data)
+        print(f"✓ User created successfully")
 
         # Handle group creation or joining
         group_code: Optional[str] = None
 
         if request.groupName:
             # Create new group - user becomes admin
+            print(f"Creating group: {request.groupName}")
             group_id = db.create_group(
                 {
                     "name": request.groupName,
@@ -152,11 +155,15 @@ async def signup(request: SignupRequest):
                     "created_at": now,
                 }
             )
+            print(f"✓ Group created: group_id={group_id}")
 
             # Generate invite code for the group
+            print(f"Generating invite code for group {group_id}")
             group_code = db.generate_group_invite_code(group_id)
+            print(f"✓ Invite code generated: {group_code}")
 
             # Add user as admin
+            print(f"Adding user {user_id} to group {group_id} as admin")
             db.add_group_member(
                 {
                     "group_id": group_id,
@@ -166,6 +173,7 @@ async def signup(request: SignupRequest):
                     # status/balance defaulted in LocalDBService
                 }
             )
+            print(f"✓ User added to group successfully")
 
             role = "admin"
 
@@ -207,11 +215,18 @@ async def signup(request: SignupRequest):
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         import traceback
 
+        # Log the full error for debugging in CloudWatch
         traceback.print_exc()
-        raise
+        print(f"SIGNUP ERROR: {type(e).__name__}: {str(e)}")
+
+        # Return a proper HTTP error with details
+        raise HTTPException(
+            status_code=500,
+            detail=f"Signup failed: {type(e).__name__}: {str(e)}"
+        )
 
 
 # ============= CURRENT USER / JWT HELPERS =============
