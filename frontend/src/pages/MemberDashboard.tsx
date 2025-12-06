@@ -38,13 +38,22 @@ const MemberDashboard: React.FC = () => {
                 api.members.getAll(),
             ]);
 
+            const parseEventDate = (event: Event) =>
+                new Date(`${event.event_date}T${event.event_time}`);
+
+            const now = new Date();
+
+            const nextThreeEvents = eventsData
+                .filter(event => parseEventDate(event) >= now)   // only future events
+                .sort((a, b) => parseEventDate(a).getTime() - parseEventDate(b).getTime()) // closest → furthest
+                .slice(0, 3);                                      // take first 3
+
             // Filter for upcoming events - same logic as SchedulePage (line 163-169)
             const isUpcoming = (event: Event) => {
                 const eventDateTime = new Date(event.event_date + ' ' + event.event_time);
                 return eventDateTime >= new Date();
             };
             const upcoming = eventsData.filter(isUpcoming);
-            const nextThreeEvents = upcoming.slice(0, 3); // Get next 3 for display
 
             // Filter payments for current user
             const myPayments = paymentsData.filter(p => p.user_id === user?.id);
@@ -63,7 +72,7 @@ const MemberDashboard: React.FC = () => {
             setUpcomingEvents(nextThreeEvents);
             setRecentPayments(recentUserPayments);
             setTeamMembers(membersData);
-            setNextEvent(upcoming.length > 0 ? upcoming[0] : null);
+            setNextEvent(nextThreeEvents.length > 0 ? nextThreeEvents[0] : null);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
         } finally {

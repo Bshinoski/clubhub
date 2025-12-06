@@ -41,13 +41,23 @@ const AdminDashboard: React.FC = () => {
                 api.groups.getMyGroup(),
             ]);
 
+            const parseEventDate = (event: Event) =>
+                new Date(`${event.event_date}T${event.event_time}`);
+
+            const now = new Date();
+
+            const nextThreeEvents = eventsData
+                .filter(event => parseEventDate(event) >= now)   // only future events
+                .sort((a, b) => parseEventDate(a).getTime() - parseEventDate(b).getTime()) // closest → furthest
+                .slice(0, 3);                                      // take first 3
+
             // Filter for upcoming events - same logic as SchedulePage (line 163-169)
             const isUpcoming = (event: Event) => {
                 const eventDateTime = new Date(event.event_date + ' ' + event.event_time);
                 return eventDateTime >= new Date();
             };
             const upcoming = eventsData.filter(isUpcoming);
-            const nextThreeEvents = upcoming.slice(0, 3); // Get next 3 for display
+
 
             // Calculate stats - same as respective pages
             const adminCount = membersData.filter(m => m.role === 'admin').length;
