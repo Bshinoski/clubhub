@@ -273,7 +273,17 @@ class LocalDBService:
             group_id = cur.lastrowid
         return group_id
 
-    def generate_group_invite_code(self, group_id: int) -> str:
+    def generate_group_invite_code(self, group_id: int, regenerate: bool = False) -> str:
+        """
+        Generate a new invite code for a group.
+
+        Args:
+            group_id: The group ID to generate a code for
+            regenerate: If True, always generate a new code (unused but kept for API compatibility)
+
+        Returns:
+            The generated invite code
+        """
         invite_code = shortuuid.ShortUUID().random(length=6).upper()
         with self._conn() as conn:
             conn.execute(
@@ -296,6 +306,16 @@ class LocalDBService:
             row = cur.fetchone()
             return dict(row) if row else None
 
+    def get_group_invite_code(self, group_id: int) -> Optional[str]:
+        """
+        Get the invite code for a group.
+        Returns None if the group doesn't exist or doesn't have an invite code yet.
+        """
+        group = self.get_group_by_id(group_id)
+        if group and group.get('invite_code'):
+            return group['invite_code']
+        return None
+
     def update_group(self, group_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
         if not updates:
             g = self.get_group_by_id(group_id)
@@ -315,6 +335,20 @@ class LocalDBService:
             )
 
         return self.get_group_by_id(group_id) or {}
+
+    def get_group_settings(self, group_id: int) -> Dict[str, Any]:
+        """
+        Get group settings (placeholder implementation).
+        Returns empty dict for now - settings storage not yet implemented.
+        """
+        return {}
+
+    def update_group_settings(self, group_id: int, settings: Dict[str, Any]) -> None:
+        """
+        Update group settings (placeholder implementation).
+        Does nothing for now - settings storage not yet implemented.
+        """
+        pass
 
     # ============= MEMBERSHIP OPERATIONS =============
 
