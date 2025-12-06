@@ -1,288 +1,220 @@
-from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
-from typing import List, Optional, Dict
-from datetime import datetime
-import uuid
-import json
+import React, { useState, useEffect, useRef } from 'react';
+import { DashboardLayout } from '../components/dashboard/DashboardLayout';
+import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/common/Button';
+import api, { Message } from '../api/api-client';
+import { Send, AlertCircle } from 'lucide-react';
 
-from app.services.db_service import get_db_service
-from app.api.auth import get_current_user_id
+const ChatPage: React.FC = () => {
+    const { user } = useAuth();
+    const [messageText, setMessageText] = useState('');
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-router = APIRouter()
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-# WebSocket connection manager
-class ConnectionManager:
-    def __init__(self):
-        # Dict[group_id, List[WebSocket]]
-        self.active_connections: Dict[int, List[WebSocket]] = {}
-    
-    async def connect(self, websocket: WebSocket, group_id: int):
-        await websocket.accept()
-        if group_id not in self.active_connections:
-            self.active_connections[group_id] = []
-        self.active_connections[group_id].append(websocket)
-    
-    def disconnect(self, websocket: WebSocket, group_id: int):
-        if group_id in self.active_connections:
-            if websocket in self.active_connections[group_id]:
-                self.active_connections[group_id].remove(websocket)
-    
-    async def broadcast_to_group(self, group_id: int, message: dict):
-        if group_id in self.active_connections:
-            disconnected = []
-            for connection in self.active_connections[group_id]:
-                try:
-                    await connection.send_json(message)
-                except:
-                    disconnected.append(connection)
-            
-            # Remove disconnected clients
-            for conn in disconnected:
-                self.disconnect(conn, group_id)
+    // Initial fetch + polling for new messages
+    useEffect(() => {
+        const load = async () => {
+            await fetchMessages();
+        };
 
-manager = ConnectionManager()
+        load();
 
-# Request/Response Models
-class MessageResponse(BaseModel):
-    message_id: str
-    group_id: int
-    user_id: str
-    user_name: str
-    content: str
-    created_at: str
+        // Poll every 3 seconds
+        const id = setInterval(fetchMessages, 3000);
+        return () => clearInterval(id);
+    }, []);
 
-class SendMessageRequest(BaseModel):
-    content: str
+    // Auto-scroll to bottom when new messages arrive
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
 
-@router.get("/messages", response_model=List[MessageResponse])
-async def get_messages(
-    limit: int = 50,
-    before: Optional[str] = None,
-    user_id: str = Depends(get_current_user_id)
-):
-    """
-    Get chat messages for user's group
-    """
-    try:
-        db = get_db_service()
-        
-        membership = db.get_user_membership(user_id)
-        if not membership:
-            raise HTTPException(status_code=404, detail="User not in any group")
-        
-        group_id = membership['group_id']
-        
-        # Get messages
-        messages = db.get_group_messages(group_id, limit=limit, before=before)
-        
-        # Convert to response models
-        message_list = []
-        for message in messages:
-            message_list.append(MessageResponse(**message))
-
-        return message_list
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/messages", response_model=MessageResponse)
-async def send_message(
-    request: SendMessageRequest,
-    user_id: str = Depends(get_current_user_id)
-):
-    """
-    Send a chat message
-    """
-    try:
-        db = get_db_service()
-        
-        membership = db.get_user_membership(user_id)
-        if not membership:
-            raise HTTPException(status_code=404, detail="User not in any group")
-        
-        group_id = membership['group_id']
-        
-        # Validate message
-        if not request.content or not request.content.strip():
-            raise HTTPException(status_code=400, detail="Message cannot be empty")
-        
-        # Create message
-        message_id = str(uuid.uuid4())
-        message_data = {
-            'message_id': message_id,
-            'group_id': group_id,
-            'user_id': user_id,
-            'content': request.content.strip(),
-            'created_at': datetime.utcnow().isoformat()
+    const fetchMessages = async () => {
+        setError('');
+        try {
+            const data = await api.chat.getMessages({ limit: 50 });
+            setMessages(data);
+            setLoading(false);
+        } catch (err: any) {
+            setError(err.message || 'Failed to load messages');
+            setLoading(false);
         }
-        
-        db.create_message(message_data)
+    };
 
-        # Get created message (user_name is already included by db service)
-        message = db.get_message_by_id(message_id)
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!messageText.trim()) return;
 
-        response = MessageResponse(**message)
-        
-        # Broadcast to WebSocket clients
-        await manager.broadcast_to_group(group_id, {
-            "type": "new_message",
-            "message": response.dict()
-        })
-        
-        return response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        const tempMessage = messageText;
+        setMessageText('');
 
+        try {
+            // Send via REST API
+            const saved = await api.chat.sendMessage(tempMessage);
 
-@router.delete("/messages/{message_id}")
-async def delete_message(message_id: str, user_id: str = Depends(get_current_user_id)):
-    """
-    Delete a message (author or admin only)
-    """
-    try:
-        db = get_db_service()
-        
-        membership = db.get_user_membership(user_id)
-        if not membership:
-            raise HTTPException(status_code=404, detail="User not in any group")
-        
-        group_id = membership['group_id']
-        is_admin = membership['role'] == 'admin'
-        
-        # Get message
-        message = db.get_message_by_id(message_id)
-        if not message:
-            raise HTTPException(status_code=404, detail="Message not found")
-        
-        # Verify message belongs to user's group
-        if message['group_id'] != group_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        # Check permissions (admin or author)
-        if not is_admin and message['user_id'] != user_id:
-            raise HTTPException(status_code=403, detail="Permission denied")
-        
-        # Delete message
-        db.delete_message(message_id)
-        
-        # Broadcast deletion to WebSocket clients
-        await manager.broadcast_to_group(group_id, {
-            "type": "message_deleted",
-            "message_id": message_id
-        })
-        
-        return {"ok": True, "message": "Message deleted successfully"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            // Optimistically add to local list
+            setMessages(prev => [...prev, saved]);
+        } catch (err: any) {
+            setError(err.message || 'Failed to send message');
+            setMessageText(tempMessage); // Restore message on error
+        }
+    };
 
+    const handleDeleteMessage = async (messageId: string) => {
+        if (!window.confirm('Delete this message?')) return;
 
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str):
-    """
-    WebSocket endpoint for real-time chat
-    Connect with: ws://localhost:8000/api/chat/ws?token=<jwt_token>
-    """
-    try:
-        # Verify token and get user
-        import jwt
-        from app.config import settings
-        
-        try:
-            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-            user_id = payload.get('user_id')
-            group_id = payload.get('group_id')
-            
-            if not user_id or not group_id:
-                await websocket.close(code=1008, reason="Invalid token")
-                return
-        except jwt.JWTError:
-            await websocket.close(code=1008, reason="Invalid token")
-            return
-        
-        # Connect to WebSocket
-        await manager.connect(websocket, group_id)
-        
-        try:
-            # Send connection confirmation
-            await websocket.send_json({
-                "type": "connected",
-                "group_id": group_id,
-                "user_id": user_id
-            })
-            
-            # Listen for messages
-            while True:
-                # Receive message from client
-                data = await websocket.receive_text()
-                
-                try:
-                    message_data = json.loads(data)
-                    
-                    # Handle different message types
-                    if message_data.get('type') == 'send_message':
-                        content = message_data.get('content', '').strip()
-                        
-                        if content:
-                            db = get_db_service()
-                            
-                            # Create message
-                            message_id = str(uuid.uuid4())
-                            new_message = {
-                                'message_id': message_id,
-                                'group_id': group_id,
-                                'user_id': user_id,
-                                'content': content,
-                                'created_at': datetime.utcnow().isoformat()
-                            }
+        try {
+            await api.chat.deleteMessage(messageId);
+            // Update local state
+            setMessages(prev => prev.filter(m => m.message_id !== messageId));
+        } catch (err: any) {
+            alert(err.message || 'Failed to delete message');
+        }
+    };
 
-                            # Create message (returns message with user_name included)
-                            created_message = db.create_message(new_message)
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Loading messages...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
-                            # Broadcast to all group members
-                            await manager.broadcast_to_group(group_id, {
-                                "type": "new_message",
-                                "message": created_message
-                            })
-                    
-                    elif message_data.get('type') == 'typing':
-                        # Broadcast typing indicator
-                        db = get_db_service()
-                        user = db.get_user_by_id(user_id)
-                        
-                        await manager.broadcast_to_group(group_id, {
-                            "type": "user_typing",
-                            "user_id": user_id,
-                            "user_name": user.get('display_name', user['email']) if user else 'Unknown'
-                        })
-                
-                except json.JSONDecodeError:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Invalid message format"
-                    })
-        
-        except WebSocketDisconnect:
-            manager.disconnect(websocket, group_id)
-            
-            # Broadcast user disconnected
-            await manager.broadcast_to_group(group_id, {
-                "type": "user_disconnected",
-                "user_id": user_id
-            })
-    
-    except Exception as e:
-        print(f"WebSocket error: {str(e)}")
-        try:
-            await websocket.close(code=1011, reason="Internal server error")
-        except:
-            pass
+    return (
+        <DashboardLayout>
+            <div className="h-[calc(100vh-8rem)] flex flex-col">
+                <div className="mb-4 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Team Chat</h1>
+                        <p className="text-gray-600 mt-1">
+                            Real-time team communication (auto-refreshing)
+                        </p>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                        <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                )}
+
+                {/* Messages Container */}
+                <div className="flex-1 card overflow-y-auto mb-4 space-y-4">
+                    {messages.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                                <Send className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">No messages yet</h3>
+                                <p className="text-gray-600">Be the first to send a message!</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {messages.map((message) => {
+                                const isCurrentUser = message.user_id === user?.id;
+                                const canDelete = isCurrentUser || user?.role === 'admin';
+
+                                return (
+                                    <div
+                                        key={message.message_id}
+                                        className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div className={`max-w-md ${isCurrentUser ? 'order-2' : 'order-1'}`}>
+                                            <div className="flex items-center space-x-2 mb-1">
+                                                {!isCurrentUser && (
+                                                    <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                        <span className="text-primary-700 font-semibold text-sm">
+                                                            {message.user_name.charAt(0)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{message.user_name}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {new Date(message.created_at).toLocaleTimeString('en-US', {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit',
+                                                        })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start space-x-2">
+                                                <div
+                                                    className={`px-4 py-2 rounded-lg ${
+                                                        isCurrentUser
+                                                            ? 'bg-primary-600 text-white'
+                                                            : 'bg-gray-100 text-gray-900'
+                                                    }`}
+                                                >
+                                                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                                                </div>
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDeleteMessage(message.message_id)}
+                                                        className="text-gray-400 hover:text-red-600 transition-colors"
+                                                        title="Delete message"
+                                                    >
+                                                        <svg
+                                                            className="h-4 w-4"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M6 18L18 6M6 6l12 12"
+                                                            />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <div ref={messagesEndRef} />
+                        </>
+                    )}
+                </div>
+
+                {/* Message Input */}
+                <form onSubmit={handleSendMessage} className="card">
+                    <div className="flex space-x-3">
+                        <input
+                            type="text"
+                            value={messageText}
+                            onChange={(e) => setMessageText(e.target.value)}
+                            placeholder="Type your message..."
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                        />
+                        <Button
+                            type="submit"
+                            disabled={!messageText.trim()}
+                            className="flex items-center space-x-2"
+                        >
+                            <Send className="h-4 w-4" />
+                            <span>Send</span>
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </DashboardLayout>
+    );
+};
+
+export default ChatPage;
