@@ -142,8 +142,17 @@ class DynamoDBService:
         self.groups_table.put_item(Item=item)
         return group_id
 
-    def generate_group_invite_code(self, group_id: int) -> str:
-        """Generate and update invite code for a group"""
+    def generate_group_invite_code(self, group_id: int, regenerate: bool = False) -> str:
+        """
+        Generate and update invite code for a group.
+
+        Args:
+            group_id: The group ID to generate a code for
+            regenerate: If True, always generate a new code (unused but kept for API compatibility)
+
+        Returns:
+            The generated invite code
+        """
         invite_code = shortuuid.ShortUUID().random(length=6).upper()
 
         self.groups_table.update_item(
@@ -168,6 +177,16 @@ class DynamoDBService:
         item = response.get('Item')
         return decimal_to_float(item) if item else None
 
+    def get_group_invite_code(self, group_id: int) -> Optional[str]:
+        """
+        Get the invite code for a group.
+        Returns None if the group doesn't exist or doesn't have an invite code yet.
+        """
+        group = self.get_group_by_id(group_id)
+        if group and group.get('invite_code'):
+            return group['invite_code']
+        return None
+
     def update_group(self, group_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
         """Update group information"""
         update_expr_parts = []
@@ -191,6 +210,20 @@ class DynamoDBService:
             ReturnValues='ALL_NEW'
         )
         return decimal_to_float(response['Attributes'])
+
+    def get_group_settings(self, group_id: int) -> Dict[str, Any]:
+        """
+        Get group settings (placeholder implementation).
+        Returns empty dict for now - settings storage not yet implemented.
+        """
+        return {}
+
+    def update_group_settings(self, group_id: int, settings: Dict[str, Any]) -> None:
+        """
+        Update group settings (placeholder implementation).
+        Does nothing for now - settings storage not yet implemented.
+        """
+        pass
 
     # ==================== GROUP MEMBER METHODS ====================
 
