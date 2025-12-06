@@ -11,8 +11,16 @@ from app.config import settings
 
 
 def decimal_to_float(obj):
-    """Convert Decimal objects to float for JSON serialization"""
+    """Convert Decimal objects to float/int for JSON serialization
+
+    Converts Decimals to int if they represent whole numbers (like IDs),
+    otherwise converts to float (like balances).
+    """
     if isinstance(obj, Decimal):
+        # If it's a whole number, convert to int (for IDs)
+        # Otherwise convert to float (for balances, amounts, etc.)
+        if obj % 1 == 0:
+            return int(obj)
         return float(obj)
     elif isinstance(obj, dict):
         return {k: decimal_to_float(v) for k, v in obj.items()}
