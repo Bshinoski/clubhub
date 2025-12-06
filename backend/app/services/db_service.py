@@ -183,6 +183,19 @@ class LocalDBService:
                 """
             )
 
+            # Migration: Update existing messages with proper user_name
+            c.execute(
+                """
+                UPDATE messages
+                SET user_name = (
+                    SELECT COALESCE(display_name, email)
+                    FROM users
+                    WHERE users.user_id = messages.user_id
+                )
+                WHERE user_name IS NULL OR user_name = '' OR user_name = 'Unknown'
+                """
+            )
+
     # ============= USER OPERATIONS =============
 
     def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
