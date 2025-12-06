@@ -2,8 +2,8 @@
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api, { Member, Event, MemberBalance, PaymentStatistics } from '../api/api-client';
-import { Users, Calendar, Clock, DollarSign, Camera, TrendingUp, AlertCircle } from 'lucide-react';
+import api, { Member, Event, MemberBalance, PaymentStatistics, Group } from '../api/api-client';
+import { Users, Calendar, Clock, DollarSign, Camera, TrendingUp, AlertCircle, Copy, Check } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
     const { user } = useAuth();
@@ -18,6 +18,8 @@ const AdminDashboard: React.FC = () => {
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
     const [topBalances, setTopBalances] = useState<MemberBalance[]>([]);
     const [paymentStats, setPaymentStats] = useState<PaymentStatistics | null>(null);
+    const [groupInfo, setGroupInfo] = useState<Group | null>(null);
+    const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -30,12 +32,13 @@ const AdminDashboard: React.FC = () => {
         setError('');
         try {
             // Fetch all data in parallel - using same pattern as respective pages
-            const [membersData, eventsData, balancesData, photoCountData, statsData] = await Promise.all([
+            const [membersData, eventsData, balancesData, photoCountData, statsData, groupData] = await Promise.all([
                 api.members.getAll(),
                 api.events.getAll(), // Fetch ALL events like SchedulePage does
                 api.payments.getBalances(),
                 api.photos.getCount(),
                 api.payments.getStatistics(),
+                api.groups.getMyGroup(),
             ]);
 
             // Filter for upcoming events - same logic as SchedulePage (line 163-169)
@@ -64,6 +67,7 @@ const AdminDashboard: React.FC = () => {
             setUpcomingEvents(nextThreeEvents);
             setTopBalances(topOwing);
             setPaymentStats(statsData);
+            setGroupInfo(groupData);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
         } finally {
@@ -86,6 +90,18 @@ const AdminDashboard: React.FC = () => {
         const ampm = hour >= 12 ? 'PM' : 'AM';
         const displayHour = hour % 12 || 12;
         return `${displayHour}:${minutes} ${ampm}`;
+    };
+
+    const copyInviteCode = async () => {
+        if (groupInfo?.invite_code) {
+            try {
+                await navigator.clipboard.writeText(groupInfo.invite_code);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        }
     };
 
     if (loading) {
@@ -173,6 +189,43 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </Link>
                 </div>
+
+                {/* Group Invite Code */}
+                {groupInfo && (
+                    <div className="card bg-gradient-to-r from-primary-50 to-blue-50 border-2 border-primary-200">
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                                <h2 className="text-xl font-bold text-gray-900 mb-2">Group Invite Code</h2>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Share this code with new members to invite them to {groupInfo.name}
+                                </p>
+                                <div className="flex items-center space-x-3">
+                                    <div className="flex-1 bg-white rounded-lg px-4 py-3 border-2 border-primary-300">
+                                        <code className="text-2xl font-mono font-bold text-primary-700 tracking-wider">
+                                            {groupInfo.invite_code}
+                                        </code>
+                                    </div>
+                                    <button
+                                        onClick={copyInviteCode}
+                                        className="btn-primary flex items-center space-x-2 whitespace-nowrap"
+                                    >
+                                        {copied ? (
+                                            <>
+                                                <Check className="h-5 w-5" />
+                                                <span>Copied!</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="h-5 w-5" />
+                                                <span>Copy Code</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Upcoming Events */}
