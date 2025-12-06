@@ -29,14 +29,22 @@ const MemberDashboard: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            // Fetch all data in parallel - using same pattern as PaymentsPage
+            // Fetch all data in parallel - using same pattern as respective pages
             const [eventsData, paymentsData, myBalanceData, photoCountData, membersData] = await Promise.all([
-                api.events.getUpcoming(3),
+                api.events.getAll(), // Fetch ALL events like SchedulePage does
                 api.payments.getAll(), // Will need to filter for current user
                 api.payments.getMyBalance(),
                 api.photos.getCount(),
                 api.members.getAll(),
             ]);
+
+            // Filter for upcoming events - same logic as SchedulePage (line 163-169)
+            const isUpcoming = (event: Event) => {
+                const eventDateTime = new Date(event.event_date + ' ' + event.event_time);
+                return eventDateTime >= new Date();
+            };
+            const upcoming = eventsData.filter(isUpcoming);
+            const nextThreeEvents = upcoming.slice(0, 3); // Get next 3 for display
 
             // Filter payments for current user
             const myPayments = paymentsData.filter(p => p.user_id === user?.id);
@@ -46,16 +54,16 @@ const MemberDashboard: React.FC = () => {
                 .slice(0, 5);
 
             setStats({
-                upcomingEvents: eventsData.length,
+                upcomingEvents: upcoming.length, // Count ALL upcoming events like SchedulePage
                 myBalance: myBalanceData.balance,
                 unpaidPayments: myUnpaid,
                 photoCount: photoCountData.count,
             });
 
-            setUpcomingEvents(eventsData);
+            setUpcomingEvents(nextThreeEvents);
             setRecentPayments(recentUserPayments);
             setTeamMembers(membersData);
-            setNextEvent(eventsData.length > 0 ? eventsData[0] : null);
+            setNextEvent(upcoming.length > 0 ? upcoming[0] : null);
         } catch (err: any) {
             setError(err.message || 'Failed to load dashboard data');
         } finally {

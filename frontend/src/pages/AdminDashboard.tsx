@@ -29,32 +29,39 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            // Fetch all data in parallel - using same pattern as PaymentsPage
+            // Fetch all data in parallel - using same pattern as respective pages
             const [membersData, eventsData, balancesData, photoCountData, statsData] = await Promise.all([
                 api.members.getAll(),
-                api.events.getUpcoming(3),
+                api.events.getAll(), // Fetch ALL events like SchedulePage does
                 api.payments.getBalances(),
                 api.photos.getCount(),
                 api.payments.getStatistics(),
             ]);
 
-            // Calculate stats
+            // Filter for upcoming events - same logic as SchedulePage (line 163-169)
+            const isUpcoming = (event: Event) => {
+                const eventDateTime = new Date(event.event_date + ' ' + event.event_time);
+                return eventDateTime >= new Date();
+            };
+            const upcoming = eventsData.filter(isUpcoming);
+            const nextThreeEvents = upcoming.slice(0, 3); // Get next 3 for display
+
+            // Calculate stats - same as respective pages
             const adminCount = membersData.filter(m => m.role === 'admin').length;
-            const totalOwed = balancesData.reduce((sum, b) => sum + b.balance, 0);
             const topOwing = balancesData
                 .filter(b => b.balance > 0)
                 .sort((a, b) => b.balance - a.balance)
                 .slice(0, 5);
 
             setStats({
-                totalMembers: membersData.length,
+                totalMembers: membersData.length, // Same as RosterPage
                 adminCount,
-                upcomingEvents: eventsData.length,
-                totalOwed,
+                upcomingEvents: upcoming.length, // Count ALL upcoming events like SchedulePage
+                totalOwed: statsData.total_money_owed, // Use stats like PaymentsPage (line 477)
                 photoCount: photoCountData.count,
             });
 
-            setUpcomingEvents(eventsData);
+            setUpcomingEvents(nextThreeEvents);
             setTopBalances(topOwing);
             setPaymentStats(statsData);
         } catch (err: any) {
