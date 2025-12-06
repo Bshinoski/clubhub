@@ -401,8 +401,8 @@ class DynamoDBService:
         response = self.events_table.query(**query_params)
         events = response.get('Items', [])
 
-        # Sort by date ascending (soonest first)
-        events.sort(key=lambda x: x.get('event_date', ''))
+        # Sort by date descending
+        events.sort(key=lambda x: x.get('event_date', ''), reverse=True)
 
         return decimal_to_float(events)
 
@@ -589,14 +589,8 @@ class DynamoDBService:
             created_at = message_data.get('created_at', datetime.utcnow().isoformat())
             group_id = message_data['group_id']
             user_id = message_data['user_id']
+            user_name = message_data.get('user_name', '')
             content = message_data['content']
-
-            # Get user_name from database if not in message_data
-            if 'user_name' in message_data and message_data['user_name']:
-                user_name = message_data['user_name']
-            else:
-                user = self.get_user_by_id(user_id)
-                user_name = user.get('display_name', user['email']) if user else 'Unknown'
         else:
             group_id = message_data_or_group_id
             message_id = str(uuid.uuid4())
@@ -645,8 +639,8 @@ class DynamoDBService:
         response = self.messages_table.query(**query_params)
         messages = response.get('Items', [])
 
-        # Sort by created_at ascending (oldest first for natural conversation flow)
-        messages.sort(key=lambda x: x.get('created_at', ''))
+        # Sort by created_at descending
+        messages.sort(key=lambda x: x.get('created_at', ''), reverse=True)
 
         return decimal_to_float(messages[:limit])
 
