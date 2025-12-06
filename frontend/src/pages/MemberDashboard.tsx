@@ -133,7 +133,7 @@ const MemberDashboard: React.FC = () => {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <Link to="/schedule" className="card hover:shadow-xl transition-shadow">
+                    <Link to="/dashboard/schedule" className="card hover:shadow-xl transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Upcoming Events</p>
@@ -146,7 +146,7 @@ const MemberDashboard: React.FC = () => {
                         </div>
                     </Link>
 
-                    <Link to="/payments" className="card hover:shadow-xl transition-shadow">
+                    <Link to="/dashboard/payments" className="card hover:shadow-xl transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Your Balance</p>
@@ -163,7 +163,7 @@ const MemberDashboard: React.FC = () => {
                         </div>
                     </Link>
 
-                    <Link to="/gallery" className="card hover:shadow-xl transition-shadow">
+                    <Link to="/dashboard/gallery" className="card hover:shadow-xl transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Team Photos</p>
@@ -176,7 +176,7 @@ const MemberDashboard: React.FC = () => {
                         </div>
                     </Link>
 
-                    <Link to="/chat" className="card hover:shadow-xl transition-shadow">
+                    <Link to="/dashboard/chat" className="card hover:shadow-xl transition-shadow">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Team Chat</p>
@@ -201,7 +201,7 @@ const MemberDashboard: React.FC = () => {
                                     You have ${stats.myBalance.toFixed(2)} in outstanding payments.
                                     {stats.unpaidPayments > 0 && ` (${stats.unpaidPayments} unpaid ${stats.unpaidPayments === 1 ? 'payment' : 'payments'})`}
                                 </p>
-                                <Link to="/payments" className="text-sm font-medium text-orange-900 hover:text-orange-700 mt-2 inline-block">
+                                <Link to="/dashboard/payments" className="text-sm font-medium text-orange-900 hover:text-orange-700 mt-2 inline-block">
                                     View payments →
                                 </Link>
                             </div>
@@ -214,7 +214,7 @@ const MemberDashboard: React.FC = () => {
                     <div className="card">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold text-gray-900">Upcoming Events</h2>
-                            <Link to="/schedule" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                            <Link to="/dashboard/schedule" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
                                 View all
                             </Link>
                         </div>
@@ -223,7 +223,7 @@ const MemberDashboard: React.FC = () => {
                             <div className="text-center py-8">
                                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                                 <p className="text-gray-600 text-sm">No upcoming events</p>
-                                <Link to="/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                                <Link to="/dashboard/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
                                     Check schedule
                                 </Link>
                             </div>
@@ -263,7 +263,7 @@ const MemberDashboard: React.FC = () => {
                     <div className="card">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold text-gray-900">Your Recent Payments</h2>
-                            <Link to="/payments" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                            <Link to="/dashboard/payments" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
                                 View all
                             </Link>
                         </div>
@@ -342,7 +342,7 @@ const MemberDashboard: React.FC = () => {
                             <div className="text-center py-8">
                                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                                 <p className="text-gray-600 text-sm">No upcoming events</p>
-                                <Link to="/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                                    <Link to="/dashboard/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
                                     Check schedule
                                 </Link>
                             </div>
@@ -353,7 +353,7 @@ const MemberDashboard: React.FC = () => {
                     <div className="card">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold text-gray-900">Team Roster</h2>
-                            <Link to="/roster" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                            <Link to="/dashboard/roster" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
                                 View all
                             </Link>
                         </div>
@@ -390,7 +390,7 @@ const MemberDashboard: React.FC = () => {
                                     ))}
                                 </div>
                                 {teamMembers.length > 10 && (
-                                    <Link to="/roster" className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium pt-2">
+                                        <Link to="/dashboard/roster" className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium pt-2">
                                         View {teamMembers.length - 10} more members
                                     </Link>
                                 )}
