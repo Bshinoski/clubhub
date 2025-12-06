@@ -280,8 +280,8 @@ const MemberDashboard: React.FC = () => {
                                         <div className="flex-1">
                                             <div className="flex items-center space-x-2 mb-1">
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${payment.status === 'paid'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-orange-100 text-orange-800'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-orange-100 text-orange-800'
                                                     }`}>
                                                     {payment.status}
                                                 </span>
