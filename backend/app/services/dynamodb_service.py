@@ -11,8 +11,16 @@ from app.config import settings
 
 
 def decimal_to_float(obj):
-    """Convert Decimal objects to float for JSON serialization"""
+    """Convert Decimal objects to float/int for JSON serialization
+
+    Converts Decimals to int if they represent whole numbers (like IDs),
+    otherwise converts to float (like balances).
+    """
     if isinstance(obj, Decimal):
+        # If it's a whole number, convert to int (for IDs)
+        # Otherwise convert to float (for balances, amounts, etc.)
+        if obj % 1 == 0:
+            return int(obj)
         return float(obj)
     elif isinstance(obj, dict):
         return {k: decimal_to_float(v) for k, v in obj.items()}
@@ -55,13 +63,14 @@ class DynamoDBService:
 
     def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user"""
-        user_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        # Use the user_id from user_data if provided, otherwise generate one
+        user_id = user_data.get('user_id', str(uuid.uuid4()))
+        created_at = user_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'user_id': user_id,
             'email': user_data['email'],
-            'display_name': user_data.get('name', ''),
+            'display_name': user_data.get('display_name', ''),
             'phone': user_data.get('phone', ''),
             'password_hash': user_data['password_hash'],
             'created_at': created_at
@@ -115,16 +124,20 @@ class DynamoDBService:
         """Create a new group and return its ID"""
         # Generate a unique group_id (using timestamp + random for uniqueness)
         group_id = int(datetime.utcnow().timestamp() * 1000)
-        created_at = datetime.utcnow().isoformat()
+        created_at = group_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'group_id': group_id,
             'name': group_data['name'],
             'description': group_data.get('description', ''),
-            'invite_code': group_data.get('invite_code', ''),
             'created_by': group_data.get('created_by', ''),
             'created_at': created_at
         }
+
+        # Only include invite_code if it's provided and non-empty
+        # DynamoDB GSI cannot have empty string values
+        if group_data.get('invite_code'):
+            item['invite_code'] = group_data['invite_code']
 
         self.groups_table.put_item(Item=item)
         return group_id
@@ -183,7 +196,7 @@ class DynamoDBService:
 
     def add_group_member(self, member_data: Dict[str, Any]) -> Dict[str, Any]:
         """Add a member to a group"""
-        joined_at = datetime.utcnow().isoformat()
+        joined_at = member_data.get('joined_at', datetime.utcnow().isoformat())
 
         item = {
             'group_id': member_data['group_id'],
@@ -297,8 +310,9 @@ class DynamoDBService:
 
     def create_event(self, event_data: Dict[str, Any]) -> None:
         """Create a new event"""
-        event_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        # Use the event_id from event_data if provided, otherwise generate one
+        event_id = event_data.get('event_id', str(uuid.uuid4()))
+        created_at = event_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'event_id': event_id,
@@ -391,8 +405,9 @@ class DynamoDBService:
 
     def create_payment(self, payment_data: dict) -> None:
         """Create a new payment and update member balance"""
-        payment_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        # Use the payment_id from payment_data if provided, otherwise generate one
+        payment_id = payment_data.get('payment_id', str(uuid.uuid4()))
+        created_at = payment_data.get('created_at', datetime.utcnow().isoformat())
 
         item = {
             'payment_id': payment_id,
@@ -536,15 +551,17 @@ class DynamoDBService:
         """Create a new message (supports both dict and individual params)"""
         if isinstance(message_data_or_group_id, dict):
             message_data = message_data_or_group_id
+            # Use the message_id from message_data if provided, otherwise generate one
+            message_id = message_data.get('message_id', str(uuid.uuid4()))
+            created_at = message_data.get('created_at', datetime.utcnow().isoformat())
             group_id = message_data['group_id']
             user_id = message_data['user_id']
             user_name = message_data.get('user_name', '')
             content = message_data['content']
         else:
             group_id = message_data_or_group_id
-
-        message_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+            message_id = str(uuid.uuid4())
+            created_at = datetime.utcnow().isoformat()
 
         item = {
             'message_id': message_id,
@@ -606,8 +623,9 @@ class DynamoDBService:
 
     def create_photo(self, photo_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new photo record"""
-        photo_id = str(uuid.uuid4())
-        uploaded_at = datetime.utcnow().isoformat()
+        # Use the photo_id from photo_data if provided, otherwise generate one
+        photo_id = photo_data.get('photo_id', str(uuid.uuid4()))
+        uploaded_at = photo_data.get('uploaded_at', datetime.utcnow().isoformat())
 
         item = {
             'photo_id': photo_id,

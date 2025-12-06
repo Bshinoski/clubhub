@@ -19,9 +19,14 @@ python -m venv .venv
 pip install -r requirements.txt
 uvicorn server:app --reload --port 8000
 
-To Delete a current DB (you need to update): del clubapp_local.db
 
 # Frontend
 cd frontend
 npm install
 npm run dev
+
+
+
+To deploy:
+AWS Amplify automatically does frontend when there are updates
+For backend save changes on main, then do sam build and sam deploy
