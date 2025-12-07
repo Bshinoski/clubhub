@@ -114,6 +114,28 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
+    const getTimeUntilEvent = (event: Event | null) => {
+        if (!event) return null;
+
+        const eventDateTime = new Date(`${event.event_date}T${event.event_time}`);
+        const now = new Date();
+        const diffMs = eventDateTime.getTime() - now.getTime();
+
+        if (diffMs < 0) return 'Started';
+
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (diffDays > 0) {
+            return `${diffDays} day${diffDays !== 1 ? 's' : ''}, ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+        } else if (diffHours > 0) {
+            return `${diffHours} hour${diffHours !== 1 ? 's' : ''}, ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        } else {
+            return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        }
+    };
+
     if (loading) {
         return (
             <DashboardLayout>
@@ -163,7 +185,7 @@ const AdminDashboard: React.FC = () => {
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Upcoming Events</p>
                                 <p className="text-3xl font-bold text-gray-900 mt-1">{stats.upcomingEvents}</p>
-                                <p className="text-xs text-gray-500 mt-1">Next 3 events</p>
+                                <p className="text-xs text-gray-500 mt-1">Next events</p>
                             </div>
                             <div className="p-3 bg-blue-100 rounded-lg">
                                 <Calendar className="h-8 w-8 text-blue-600" />
