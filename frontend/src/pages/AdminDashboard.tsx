@@ -16,6 +16,7 @@ const AdminDashboard: React.FC = () => {
         photoCount: 0,
     });
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+    const [nextEvent, setNextEvent] = useState<Event | null>(null);
     const [topBalances, setTopBalances] = useState<MemberBalance[]>([]);
     const [paymentStats, setPaymentStats] = useState<PaymentStatistics | null>(null);
     const [groupInfo, setGroupInfo] = useState<Group | null>(null);
@@ -75,6 +76,7 @@ const AdminDashboard: React.FC = () => {
             });
 
             setUpcomingEvents(nextThreeEvents);
+            setNextEvent(nextThreeEvents[0] || null);
             setTopBalances(topOwing);
             setPaymentStats(statsData);
             setGroupInfo(groupData);
@@ -258,6 +260,50 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Next Event Countdown */}
+                <div className="card">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Next Event</h2>
+                        <Clock className="h-5 w-5 text-blue-600" />
+                    </div>
+
+                    {nextEvent ? (
+                        <div className="space-y-4">
+                            <div className="p-5 bg-gradient-to-br from-blue-50 to-primary-50 rounded-lg border border-blue-200">
+                                <h3 className="text-xl font-bold text-gray-900 mb-3">{nextEvent.title}</h3>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-gray-600 mb-1">Date</p>
+                                        <p className="font-semibold text-gray-900">{formatDate(nextEvent.event_date)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600 mb-1">Time</p>
+                                        <p className="font-semibold text-gray-900">{formatTime(nextEvent.event_time)}</p>
+                                    </div>
+                                </div>
+                                {nextEvent.location && (
+                                    <div className="mt-3 pt-3 border-t border-blue-200">
+                                        <p className="text-gray-600 text-sm mb-1">Location</p>
+                                        <p className="font-medium text-gray-900">{nextEvent.location}</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="text-center p-4 bg-blue-100 rounded-lg">
+                                <p className="text-sm text-blue-700 font-medium mb-1">Time until event</p>
+                                <p className="text-2xl font-bold text-blue-900">{getTimeUntilEvent(nextEvent)}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8">
+                            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                            <p className="text-gray-600 text-sm">No upcoming events</p>
+                            <Link to="/dashboard/schedule" className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                                Check schedule
+                            </Link>
+                        </div>
+                    )}
+                </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Upcoming Events */}
